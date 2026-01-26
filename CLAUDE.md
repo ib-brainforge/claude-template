@@ -2,39 +2,32 @@
 
 <!--
 This is your main CLAUDE.md file. Keep it MINIMAL (<50 lines of actual instructions).
-Heavy documentation goes in references/ and is loaded by subagents as needed.
+Heavy documentation goes in skills/ and references/ - loaded by subagents as needed.
 -->
 
-## Quick Reference
+## Skills (Entry Points)
 
-| Command | Description |
-|---------|-------------|
-| `/validate` | Run architecture validation |
-| `/commit` | Generate commits for changed repos |
-| `/commit --push` | Commit and push all changes |
-| `/update-packages --type=npm` | Update NPM packages across repos |
-| `/update-packages --type=nuget` | Update NuGet packages across repos |
-| `/sync-docs` | Sync documentation to Confluence |
+| Skill | Trigger | Description |
+|-------|---------|-------------|
+| `validation` | `/validate` | Run architecture validation |
+| `feature-planning` | `/plan-feature "name" "desc"` | Plan feature implementation |
+| `commit-manager` | `/commit` | Generate commits across repos |
+| `package-release` | `/update-packages` | Update NPM/NuGet packages |
+| `docs-sync` | `/sync-docs` | Sync to Confluence |
 
 ## Agents
 
 All heavy work is delegated to subagents to keep main context clean:
 
-**Validation**
-- `validation-orchestrator`: Coordinates full system validation
-- `master-architect`: System-wide architecture decisions
-- `service-validator` → `frontend-pattern-validator` / `backend-pattern-validator`
+**Validation**: `validation-orchestrator` → `master-architect`, `service-validator`, `frontend-pattern-validator`, `backend-pattern-validator`, `infrastructure-validator`, `core-validator`
 
-**Release & Git**
-- `commit-manager`: Intelligent commit generation across 40+ repos
-- `release-orchestrator`: Full release workflow coordination
+**Planning**: `feature-planner` → consults validators → `plan-validator`
 
-**Package Management (split by tech stack)**
-- `npm-package-manager`: NPM/React package CI/CD monitoring & propagation
-- `nuget-package-manager`: NuGet/C# package CI/CD monitoring & propagation
+**CI/CD**: `commit-manager`, `release-orchestrator` → `npm-package-manager`, `nuget-package-manager`
 
-**Documentation**
-- `docs-sync-agent`: Confluence synchronization
+**Local LLM**: `local-llm-worker` (Ollama), `lmstudio-llm-worker` (LM Studio)
+
+**Docs**: `docs-sync-agent`
 
 ## Repository Structure
 
@@ -51,13 +44,14 @@ $REPOS_ROOT/
 
 ## Core Packages
 
-<!-- TODO: Update in references/package-config.md -->
+<!-- TODO: Update in skills/package-release/references/package-config.md -->
 - NPM: `@your-org/core-react`, `@your-org/ui-components`
 - NuGet: `YourOrg.Core`, `YourOrg.Data`
 
-## Scripts
+## Workflow Pattern
 
-All scripts return JSON for deterministic processing:
-- `git-operations.py`: Multi-repo git, commit analysis
-- `npm-package-ops.py`: NPM registry, package.json updates
-- `nuget-package-ops.py`: NuGet registry, .csproj updates
+```
+User → Skill (SKILL.md + scripts) → Agents (subagents) → JSON Results
+```
+
+All scripts are inside skills/ folders and return JSON for deterministic processing.
