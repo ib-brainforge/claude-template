@@ -35,6 +35,7 @@ implementation plans for full-stack features (frontend + backend slices).
 
 - references/system-architecture.md
 - references/rules/*.md
+- references/design-patterns/*.md
 - Access to all repository roots
 
 # Workflow
@@ -51,7 +52,14 @@ implementation plans for full-stack features (frontend + backend slices).
 │    • Scan repos for affected services                                        │
 │    • Classify: frontend, backend, shared, infra                              │
 │                                                                              │
-│  PHASE 2: ARCHITECTURAL CONSULTATION                                         │
+│  PHASE 2: DESIGN PATTERNS                                                    │
+│  ────────────────────────                                                    │
+│  Spawn: design-pattern-advisor (suggest mode)                                │
+│    • Recommend patterns for the feature                                      │
+│    • Identify core components to use                                         │
+│    • Provide code examples                                                   │
+│                                                                              │
+│  PHASE 3: ARCHITECTURAL CONSULTATION                                         │
 │  ───────────────────────────────────                                         │
 │  Spawn parallel subagents:                                                   │
 │    ├──► master-architect ──► System constraints                              │
@@ -60,21 +68,23 @@ implementation plans for full-stack features (frontend + backend slices).
 │    ├──► core-validator ──► Library impacts                                   │
 │    └──► infrastructure-validator ──► Deployment needs                        │
 │                                                                              │
-│  PHASE 3: SYNTHESIS                                                          │
+│  PHASE 4: SYNTHESIS                                                          │
 │  ─────────────────                                                           │
 │  scripts/feature-analysis.py synthesize                                      │
 │    • Combine all architectural inputs                                        │
+│    • Include design pattern recommendations                                  │
 │    • Identify dependencies                                                   │
 │    • Generate phased task breakdown                                          │
 │                                                                              │
-│  PHASE 4: VALIDATION                                                         │
+│  PHASE 5: VALIDATION                                                         │
 │  ───────────────────                                                         │
 │  Spawn: plan-validator                                                       │
 │    • Check 8 validation dimensions                                           │
+│    • Verify pattern compliance                                               │
 │    • Security compliance                                                     │
 │    • Dependency ordering                                                     │
 │                                                                              │
-│  PHASE 5: OUTPUT                                                             │
+│  PHASE 6: OUTPUT                                                             │
 │  ────────────────                                                            │
 │  scripts/feature-analysis.py write-plan                                      │
 │    • feature-{name}-plan.md                                                  │
@@ -95,7 +105,26 @@ python skills/feature-planning/scripts/feature-analysis.py discover \
   --output /tmp/affected-services.json
 ```
 
-## Phase 2: Architectural Consultation
+## Phase 2: Design Pattern Recommendations
+
+```
+Task: spawn design-pattern-advisor
+Prompt: |
+  Suggest design patterns for feature:
+  Feature: $FEATURE_NAME
+  Description: $DESCRIPTION
+  Mode: suggest
+
+  Provide:
+  - Recommended patterns with rationale
+  - Core components to use (@core/ui, Core.Data, etc.)
+  - Code examples for frontend and backend
+  - Common pitfalls to avoid
+```
+
+Save output to `/tmp/design-patterns-input.json`
+
+## Phase 3: Architectural Consultation
 
 **Spawn these subagents in PARALLEL:**
 
@@ -153,7 +182,7 @@ Prompt: |
   Provide: deployment changes, CI/CD updates, scaling needs
 ```
 
-## Phase 3: Synthesis
+## Phase 4: Synthesis
 
 ```bash
 python skills/feature-planning/scripts/feature-analysis.py synthesize \
@@ -162,10 +191,11 @@ python skills/feature-planning/scripts/feature-analysis.py synthesize \
   --backend-input /tmp/backend-input.json \
   --core-input /tmp/core-input.json \
   --infra-input /tmp/infra-input.json \
+  --design-patterns-input /tmp/design-patterns-input.json \
   --output /tmp/synthesized.json
 ```
 
-## Phase 4: Validation
+## Phase 5: Validation
 
 ```
 Task: spawn plan-validator
@@ -178,7 +208,7 @@ Prompt: |
   Check all 8 dimensions, return issues and recommendations.
 ```
 
-## Phase 5: Output
+## Phase 6: Output
 
 ```bash
 # Generate plan document
@@ -263,6 +293,7 @@ python skills/feature-planning/scripts/feature-analysis.py export-tasks \
 # Follow-up Skills
 
 After plan is approved:
+- `design-patterns` - Validate implementation follows recommended patterns
 - `validation` - Validate implementation as you build
 - `commit-manager` - Generate commit messages for changes
 - `package-release` - Update packages if core changes made

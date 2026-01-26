@@ -11,6 +11,7 @@ Heavy documentation goes in skills/ and references/ - loaded by subagents as nee
 |-------|---------|-------------|
 | `validation` | `/validate` | Run architecture validation |
 | `feature-planning` | `/plan-feature "name" "desc"` | Plan feature implementation |
+| `design-patterns` | `/patterns` | Validate/suggest design patterns |
 | `commit-manager` | `/commit` | Generate commits across repos |
 | `package-release` | `/update-packages` | Update NPM/NuGet packages |
 | `docs-sync` | `/sync-docs` | Sync to Confluence |
@@ -21,7 +22,9 @@ All heavy work is delegated to subagents to keep main context clean:
 
 **Validation**: `validation-orchestrator` → `master-architect`, `service-validator`, `frontend-pattern-validator`, `backend-pattern-validator`, `infrastructure-validator`, `core-validator`
 
-**Planning**: `feature-planner` → consults validators → `plan-validator`
+**Design Patterns**: `design-pattern-advisor` (validate/suggest/review modes)
+
+**Planning**: `feature-planner` → `design-pattern-advisor` → validators → `plan-validator`
 
 **CI/CD**: `commit-manager`, `release-orchestrator` → `npm-package-manager`, `nuget-package-manager`
 
