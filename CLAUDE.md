@@ -8,7 +8,8 @@
 |---------------------|----------------|---------|
 | "fix bugs from Jira/ticket" | `bug-triage` | `/fix-bugs TICKET-ID` |
 | "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fix-orchestrator` | `/fix-bug "description"` |
-| "plan feature" / "analyze feature" | `feature-planner` | `/plan-feature "description"` |
+| "plan feature" / "analyze feature" (simple) | `feature-planner` | `/plan-feature "description"` |
+| "plan feature" (multi-perspective) | `planning-council` | `/plan-council "description"` |
 | "implement feature" / "build feature" | `feature-implementor` | `/implement-feature "description"` |
 | "validate/check architecture" | `validation` skill | `/validate` |
 | "commit changes" | `commit-manager` | `/commit` |
@@ -68,6 +69,20 @@ Prompt: |
   Feature: [USER'S FEATURE DESCRIPTION]
   $REPOS_ROOT = [path to repos]
   $OUTPUT_DIR = ./plans
+```
+
+**For multi-perspective planning (spawns N agents in parallel):**
+```
+Task: spawn planning-council
+Prompt: |
+  Analyze feature from multiple perspectives.
+  Feature: [USER'S FEATURE DESCRIPTION]
+  Target: [TARGET SERVICE if specified]
+  $REPOS_ROOT = [path to repos]
+
+  Spawn $PLANNING_AGENTS_COUNT plan-analyst agents in parallel.
+  Each with different perspective (Pragmatic, Architectural, Risk-Aware, User-Centric, Performance).
+  Aggregate results and present comparison with recommendation.
 ```
 
 **For feature implementation (plan + build):**
@@ -140,7 +155,8 @@ When spawning agents, prefix your output:
 |---------|-------------|
 | `/fix-bugs TICKET-ID` | Fix multiple bugs from Jira ticket (uses bug-triage) |
 | `/fix-bug "description"` | Fix single bug you describe (no Jira needed) |
-| `/plan-feature "description"` | Plan feature implementation (analysis only) |
+| `/plan-feature "description"` | Plan feature (single perspective, fast) |
+| `/plan-council "description"` | Plan feature (N perspectives in parallel, thorough) |
 | `/implement-feature "description"` | Plan AND implement feature (full workflow) |
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
@@ -150,13 +166,15 @@ When spawning agents, prefix your output:
 ### Orchestrating Agents (spawn subagents)
 - `bug-triage` - Orchestrates bug fixing from Jira (multi-bug)
 - `bug-fix-orchestrator` - Orchestrates single bug fix (no Jira)
-- `feature-planner` - Plans features (analysis only)
+- `planning-council` - Multi-perspective planning (spawns N plan-analyst agents)
+- `feature-planner` - Single-perspective planning (simpler/faster)
 - `feature-implementor` - Implements features end-to-end (plan→build→validate→commit)
 - `commit-manager` - Commits + records learnings (SINGLE WRITER)
 - `master-architect` - Architectural oversight
 
 ### Worker Agents (do specific tasks)
 - `bug-fixer` - Applies individual bug fixes (spawned by orchestrators)
+- `plan-analyst` - Analyzes from specific perspective (spawned by planning-council)
 - `backend-pattern-validator` - Validates C#/.NET patterns
 - `frontend-pattern-validator` - Validates React/TS patterns
 - `knowledge-updater` - Writes to learned YAML files
