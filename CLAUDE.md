@@ -160,6 +160,7 @@ When spawning agents, prefix your output:
 | `/implement-feature "description"` | Plan AND implement feature (full workflow) |
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
+| `/agent-stats` | Show agent telemetry dashboard (tokens, call tree, warnings) |
 
 ## Agent System
 

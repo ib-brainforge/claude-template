@@ -76,42 +76,120 @@ Read: [file]              → Read specific files
 
 ## Observability Requirements
 
-Every agent MUST follow these observability patterns to help users understand when subagents are working:
+Every agent MUST follow these observability patterns for tracking and debugging.
 
 ### 1. Output Prefix
-Every message from an agent MUST start with the agent name in brackets:
+Every message MUST start with agent name in brackets:
 ```
 [backend-pattern-validator] Starting validation of auth-service...
-[backend-pattern-validator] Loaded 15 patterns from knowledge files
-[backend-pattern-validator] Checking repository structure...
 [backend-pattern-validator] Found 2 warnings, 0 errors
 ```
 
-### 2. Activity Logging
-When performing significant actions, log to activity file:
-```
-Bash: echo "[$(date -Iseconds)] [agent-name] action-description" >> .claude/agent-activity.log
+### 2. Telemetry Logging (REQUIRED)
+
+**On Agent Start:**
+```bash
+Bash: |
+  AGENT_ID="$(date +%s%N | cut -c1-13)"
+  echo "[$(date -Iseconds)] [START] [$AGENT_NAME] id=$AGENT_ID parent=$PARENT_ID depth=$DEPTH model=$MODEL" >> .claude/agent-activity.log
 ```
 
-Log these events:
-- Agent started with parameters
-- Knowledge files loaded
-- Subagents spawned (with their names)
-- Major analysis steps completed
-- Final status returned
+Note: `$MODEL` comes from the agent's YAML frontmatter (haiku/sonnet/opus).
 
-### 3. Subagent Tracking in Reports
-When spawning subagents, track them in the report:
+**On Knowledge File Load:**
+```bash
+Bash: echo "[$(date -Iseconds)] [LOAD] [$AGENT_NAME] file=$KNOWLEDGE_FILE" >> .claude/agent-activity.log
+```
+
+**On Spawning Child Agent:**
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [$AGENT_NAME] child=$CHILD_AGENT_NAME" >> .claude/agent-activity.log
+```
+
+**On Agent Complete:**
+```bash
+Bash: |
+  # Estimate tokens (tool_uses * ~500 for input, output_lines * ~10 for output)
+  echo "[$(date -Iseconds)] [COMPLETE] [$AGENT_NAME] id=$AGENT_ID status=$STATUS tokens=$ESTIMATED_TOKENS duration=${DURATION}s" >> .claude/agent-activity.log
+```
+
+**On High Context Warning:**
+```bash
+Bash: |
+  if [ $ESTIMATED_TOKENS -gt ${AGENT_CONTEXT_WARN_THRESHOLD:-15000} ]; then
+    echo "[$(date -Iseconds)] [WARN] [$AGENT_NAME] HIGH_CONTEXT tokens=$ESTIMATED_TOKENS threshold=15000" >> .claude/agent-activity.log
+  fi
+```
+
+### 3. Report Format with Telemetry
+
 ```json
 {
-  "agent": "parent-agent",
-  "subagents_spawned": [
-    {"name": "backend-pattern-validator", "status": "PASS", "duration_ms": 1200},
-    {"name": "frontend-pattern-validator", "status": "WARN", "duration_ms": 800}
+  "agent": "agent-name",
+  "agent_id": "1706123456789",
+  "parent_id": "1706123456000",
+  "depth": 1,
+  "model": "sonnet",
+  "status": "PASS|WARN|FAIL",
+  "telemetry": {
+    "started_at": "2026-01-27T10:30:00Z",
+    "completed_at": "2026-01-27T10:31:30Z",
+    "duration_seconds": 90,
+    "model": "sonnet",
+    "estimated_tokens": {
+      "input": 12000,
+      "output": 2500,
+      "total": 14500
+    },
+    "knowledge_files_loaded": [
+      "knowledge/architecture/system-architecture.md"
+    ],
+    "tools_used": {
+      "Read": 5,
+      "Grep": 3,
+      "Glob": 2,
+      "Task": 0,
+      "Bash": 2
+    }
+  },
+  "children_spawned": [
+    {
+      "name": "backend-pattern-validator",
+      "agent_id": "1706123456800",
+      "model": "sonnet",
+      "status": "PASS",
+      "tokens": 8500,
+      "duration_seconds": 45
+    }
   ],
-  "status": "WARN",
-  ...
+  "work_summary": "Brief description of what this agent did",
+  "issues": [],
+  "warnings": []
 }
+```
+
+### 4. Context Estimation
+
+Since exact token counts aren't available, estimate based on:
+- **Input tokens**: ~500 per tool use + ~200 per knowledge file loaded
+- **Output tokens**: ~10 per line of output generated
+
+```
+TOOL_USES=10
+KNOWLEDGE_FILES=3
+OUTPUT_LINES=50
+
+INPUT_TOKENS=$((TOOL_USES * 500 + KNOWLEDGE_FILES * 200))   # 5600
+OUTPUT_TOKENS=$((OUTPUT_LINES * 10))                         # 500
+TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))               # 6100
+```
+
+### 5. Environment Variables
+
+Agents should respect these thresholds:
+```bash
+AGENT_CONTEXT_WARN_THRESHOLD=15000   # Warn if agent uses more
+AGENT_CONTEXT_ERROR_THRESHOLD=30000  # Agent should split work
 ```
 
 ---

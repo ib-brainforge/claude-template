@@ -15,19 +15,41 @@ Orchestrates multi-perspective planning by spawning N planning agents in paralle
 Each agent analyzes the problem independently, then results are aggregated into
 a comprehensive plan with multiple approaches for user to choose from.
 
-## Observability
+## Observability & Telemetry
 
 **ALWAYS prefix output:**
 ```
 [planning-council] Starting multi-perspective analysis...
 [planning-council] Spawning $PLANNING_AGENTS_COUNT planning agents in parallel...
-[planning-council] Agent 1/5: Analyzing...
-[planning-council] Agent 2/5: Analyzing...
-[planning-council] Agent 3/5: Analyzing...
-[planning-council] Agent 4/5: Analyzing...
-[planning-council] Agent 5/5: Analyzing...
 [planning-council] All agents complete. Aggregating results...
 [planning-council] Presenting unified plan with 5 approaches...
+```
+
+**Telemetry Logging (REQUIRED):**
+
+On Start:
+```bash
+Bash: |
+  AGENT_ID="pc-$(date +%s%N | cut -c1-13)"
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [planning-council] id=$AGENT_ID parent=main depth=0 feature=\"$FEATURE_DESCRIPTION\"" >> .claude/agent-activity.log
+```
+
+On Each Child Spawn:
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [planning-council] child=plan-analyst perspective=$PERSPECTIVE" >> .claude/agent-activity.log
+```
+
+On Complete:
+```bash
+Bash: |
+  # Count tool uses and estimate tokens
+  TOOL_USES=$TOOL_COUNT
+  CHILDREN=$AGENT_COUNT
+  EST_TOKENS=$((TOOL_USES * 500 + CHILDREN * 200))
+  DURATION=$(($(date +%s) - START_TIME))
+  echo "[$(date -Iseconds)] [COMPLETE] [planning-council] id=$AGENT_ID status=$STATUS tokens=$EST_TOKENS duration=${DURATION}s children=$CHILDREN" >> .claude/agent-activity.log
+  echo "[$(date -Iseconds)] [SESSION] total_agents=$((CHILDREN + 1)) total_tokens=$TOTAL_TOKENS max_parallel=$CHILDREN" >> .claude/agent-activity.log
 ```
 
 ## Configuration

@@ -16,15 +16,44 @@ a detailed implementation plan. Part of the planning-council multi-agent system.
 
 **IMPORTANT**: You are given a PERSPECTIVE to focus on. Analyze everything through that lens.
 
-## Observability
+## Observability & Telemetry
 
 **ALWAYS prefix output with perspective:**
 ```
-[plan-analyst:Pragmatic] Starting analysis...
-[plan-analyst:Pragmatic] Loading knowledge files...
-[plan-analyst:Pragmatic] Exploring codebase...
-[plan-analyst:Pragmatic] Generating plan...
-[plan-analyst:Pragmatic] Complete ✓
+[plan-analyst:$PERSPECTIVE] Starting analysis...
+[plan-analyst:$PERSPECTIVE] Loading knowledge files...
+[plan-analyst:$PERSPECTIVE] Exploring codebase...
+[plan-analyst:$PERSPECTIVE] Generating plan...
+[plan-analyst:$PERSPECTIVE] Complete ✓
+```
+
+**Telemetry Logging (REQUIRED):**
+
+On Start:
+```bash
+Bash: |
+  AGENT_ID="pa-$(date +%s%N | cut -c1-13)"
+  START_TIME=$(date +%s)
+  echo "[$(date -Iseconds)] [START] [plan-analyst:$PERSPECTIVE] id=$AGENT_ID parent=$PARENT_ID depth=1" >> .claude/agent-activity.log
+```
+
+On Knowledge Load:
+```bash
+Bash: echo "[$(date -Iseconds)] [LOAD] [plan-analyst:$PERSPECTIVE] file=$FILE_PATH" >> .claude/agent-activity.log
+```
+
+On Complete:
+```bash
+Bash: |
+  DURATION=$(($(date +%s) - START_TIME))
+  # Estimate: ~500 tokens per tool use, ~200 per knowledge file
+  EST_TOKENS=$((TOOL_USES * 500 + KNOWLEDGE_FILES * 200))
+  echo "[$(date -Iseconds)] [COMPLETE] [plan-analyst:$PERSPECTIVE] id=$AGENT_ID status=$STATUS tokens=$EST_TOKENS duration=${DURATION}s" >> .claude/agent-activity.log
+
+  # Warn if high context
+  if [ $EST_TOKENS -gt 15000 ]; then
+    echo "[$(date -Iseconds)] [WARN] [plan-analyst:$PERSPECTIVE] HIGH_CONTEXT tokens=$EST_TOKENS threshold=15000" >> .claude/agent-activity.log
+  fi
 ```
 
 ## Knowledge to Load
