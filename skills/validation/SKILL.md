@@ -27,21 +27,24 @@ Run comprehensive architectural validation across all services. Domain-agnostic 
 # Variables
 
 - `$SCOPE (string)`: all|frontend|backend|infrastructure
-- `$SERVICE (string, optional)`: Specific service
-- `$QUICK (bool)`: Skip deep analysis
-- `$OUTPUT_DIR (string)`: Report output location
+- `$SERVICE (string, optional)`: Specific service to validate
+- `$QUICK (bool)`: Skip deep analysis (default: false)
+- `$REPOS_ROOT (path)`: Root directory containing repositories
 
 # Knowledge References
 
-This skill loads domain knowledge from:
+Load base knowledge (this skill does NOT write to learned YAML - only reads):
 
 ```
-knowledge/architecture/system-architecture.md        → System structure
-knowledge/architecture/service-boundaries.md  → Interaction rules
-knowledge/architecture/design-patterns.md     → Required patterns
-knowledge/validation/backend-patterns.md       → What to avoid
-knowledge/architecture/tech-stack.md          → Framework versions
+knowledge/architecture/system-architecture.md         → System structure, service map
+knowledge/architecture/service-boundaries.md          → Allowed service communications
+knowledge/architecture/design-patterns.md             → Required patterns
+knowledge/architecture/tech-stack.md                  → Framework versions
+knowledge/validation/backend-patterns.md              → Backend validation rules
+knowledge/validation/frontend-patterns.md             → Frontend validation rules
 ```
+
+**Note**: Validators do NOT record learnings. Only `commit-manager` writes to learned YAML files.
 
 # Workflow
 
@@ -49,76 +52,120 @@ knowledge/architecture/tech-stack.md          → Framework versions
 ┌─────────────────────────────────────────────────────────────────┐
 │                    VALIDATION WORKFLOW                           │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. DISCOVER       → tools/discover-services.py                  │
-│  2. STRUCTURE      → tools/validate-structure.py                 │
-│  3. PATTERNS       → Spawn: design-pattern-advisor               │
-│  4. BOUNDARIES     → Spawn: master-architect                     │
-│  5. DEPENDENCIES   → tools/check-dependencies.py                 │
-│  6. AGGREGATE      → tools/aggregate-results.py                  │
+│  1. LOAD KNOWLEDGE    → Read all pattern files                   │
+│  2. DISCOVER          → Glob to find services                    │
+│  3. CLASSIFY          → Determine frontend/backend/infra         │
+│  4. VALIDATE PARALLEL → Spawn validator subagents                │
+│  5. AGGREGATE         → Combine results                          │
+│  6. REPORT            → Return validation report                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 # Instructions
 
-## Step 1: Discover Services
-
-```bash
-python skills/validation/tools/discover-services.py \
-  --root $REPOS_ROOT \
-  --output /tmp/discovered-services.json
-```
-
-See `cookbook/discover-services.md` for details.
-
-## Step 2: Validate Structure
-
-```bash
-python skills/validation/tools/validate-structure.py \
-  --services /tmp/discovered-services.json \
-  --output /tmp/structure-validation.json
-```
-
-See `cookbook/validate-structure.md` for expected structure rules.
-
-## Step 3: Pattern Validation (Parallel)
+## 1. Load Knowledge
 
 ```
-Task: spawn design-pattern-advisor
+Read: knowledge/architecture/system-architecture.md
+Read: knowledge/architecture/service-boundaries.md
+Read: knowledge/architecture/design-patterns.md
+Read: knowledge/architecture/tech-stack.md
+Read: knowledge/validation/backend-patterns.md
+Read: knowledge/validation/frontend-patterns.md
+```
+
+## 2. Discover Services
+
+```
+Glob: $REPOS_ROOT/*/               → Find all repositories
+```
+
+For each discovered repo, classify by checking for:
+```
+Glob: [repo]/package.json          → Frontend (React/Vue/Angular)
+Glob: [repo]/*.csproj              → .NET backend
+Glob: [repo]/go.mod                → Go backend
+Glob: [repo]/pom.xml               → Java backend
+Glob: [repo]/terraform/            → Infrastructure
+```
+
+## 3. Filter by Scope
+
+Based on $SCOPE, filter discovered services:
+- `frontend`: Only repos with package.json containing React/Vue/Angular
+- `backend`: Only repos with .csproj, go.mod, pom.xml
+- `infrastructure`: Only repos with terraform/, pulumi/, k8s/
+- `all`: Include all services
+
+If $SERVICE specified, validate only that service.
+
+## 4. Validate Services (Parallel Subagents)
+
+### For Backend Services
+```
+Task: spawn backend-pattern-validator
 Prompt: |
-  Mode: validate
-  Target: [discovered services]
-  Load: knowledge/architecture/design-patterns.md, knowledge/validation/backend-patterns.md
-  Return: JSON validation report
+  Validate backend service: [service-path]
+  Load patterns from knowledge/validation/backend-patterns.md
+  Check against knowledge/architecture/design-patterns.md
+  Return JSON validation report
 ```
 
-## Step 4: Boundary Validation
+### For Frontend Services
+```
+Task: spawn frontend-pattern-validator
+Prompt: |
+  Validate frontend service: [service-path]
+  Load patterns from knowledge/validation/frontend-patterns.md
+  Check against knowledge/architecture/design-patterns.md
+  Return JSON validation report
+```
 
+### For Infrastructure
+```
+Task: spawn infrastructure-validator
+Prompt: |
+  Validate infrastructure: [service-path]
+  Check against knowledge/architecture/system-architecture.md
+  Return JSON validation report
+```
+
+### For Service Boundaries
 ```
 Task: spawn master-architect
 Prompt: |
-  Validate service boundaries and architecture.
-  Services: [from discovery]
-  Load: knowledge/architecture/service-boundaries.md, knowledge/architecture/system-architecture.md
-  Return: JSON validation report
+  Validate service boundaries across all services.
+  Load: knowledge/architecture/service-boundaries.md
+  Load: knowledge/architecture/system-architecture.md
+  Check for forbidden communications.
+  Return JSON validation report
 ```
 
-## Step 5: Check Dependencies
+## 5. Aggregate Results
 
-```bash
-python skills/validation/tools/check-dependencies.py \
-  --services /tmp/discovered-services.json \
-  --output /tmp/dependency-check.json
+Combine all subagent reports:
+- Collect all PASS/WARN/FAIL statuses
+- Merge issues by category
+- Calculate overall status (FAIL if any FAIL, WARN if any WARN, else PASS)
+
+## 6. Quick Mode (if $QUICK)
+
+Skip subagent spawning. Only check:
+```
+Glob: [service]/src/**/*           → Verify structure exists
+Read: [service]/package.json       → Check dependencies
+Grep: "TODO" in [service]/src/**/* → Find outstanding TODOs
 ```
 
-## Step 6: Aggregate Results
+# Validation Categories
 
-```bash
-python skills/validation/tools/aggregate-results.py \
-  --inputs /tmp/*-validation.json \
-  --output "$OUTPUT_DIR/validation-report.json"
-```
-
-See `cookbook/aggregate-results.md` for aggregation logic.
+| Category | Validator Agent | Knowledge Source |
+|----------|-----------------|------------------|
+| Structure | (built-in) | system-architecture.md |
+| Backend Patterns | backend-pattern-validator | backend-patterns.md |
+| Frontend Patterns | frontend-pattern-validator | frontend-patterns.md |
+| Service Boundaries | master-architect | service-boundaries.md |
+| Infrastructure | infrastructure-validator | system-architecture.md |
 
 # Report Format
 
@@ -138,27 +185,25 @@ See `cookbook/aggregate-results.md` for aggregation logic.
     "boundaries": { "status": "PASS" },
     "dependencies": { "status": "FAIL", "issues": [...] }
   },
+  "services": [
+    {
+      "name": "user-service",
+      "type": "backend",
+      "status": "PASS",
+      "issues": []
+    }
+  ],
   "critical_issues": [...],
   "recommendations": [...]
 }
 ```
 
-# Cookbook
+# Note on Learnings
 
-| Recipe | Purpose |
-|--------|---------|
-| `discover-services.md` | How service discovery works |
-| `validate-structure.md` | Structure validation rules |
-| `aggregate-results.md` | Result aggregation logic |
+**This skill does NOT record learnings.**
 
-# Tools
-
-| Tool | Purpose |
-|------|---------|
-| `discover-services.py` | Find and classify services |
-| `validate-structure.py` | Check directory layout |
-| `check-dependencies.py` | Analyze dependency graph |
-| `aggregate-results.py` | Combine validation results |
+Validation findings are observations, not changes. Only `commit-manager` records
+architectural learnings after actual code changes are committed.
 
 # Related Skills
 

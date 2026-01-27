@@ -27,38 +27,27 @@ implementation plans for full-stack features (frontend + backend slices).
 
 - `$FEATURE_NAME (string)`: Short identifier (kebab-case)
 - `$DESCRIPTION (string)`: Detailed feature requirements
-- `$REPOS_ROOT (string)`: Path to repositories (default: .)
-- `$OUTPUT_DIR (string)`: Where to write plans (default: ./feature-plans)
+- `$REPOS_ROOT (path)`: Path to repositories (default: .)
+- `$OUTPUT_DIR (path)`: Where to write plans (default: ./feature-plans)
 - `$VALIDATION_LEVEL (string)`: strict|standard|lenient (default: standard)
 
 # Knowledge References
 
-This skill loads domain knowledge from:
+Load base knowledge AND recent changes from learned YAML:
 
 ```
-knowledge/architecture/system-architecture.md        → System structure and service map
-knowledge/architecture/service-boundaries.md  → Service interaction rules
-knowledge/architecture/design-patterns.md     → Required patterns for frontend/backend
-knowledge/validation/backend-patterns.md       → What to avoid
-knowledge/architecture/tech-stack.md          → Framework versions and conventions
-knowledge/packages/core-packages.md       → Shared libraries and APIs
+knowledge/architecture/system-architecture.md              → Base system structure
+knowledge/architecture/system-architecture.learned.yaml    → Recent features, decisions
+knowledge/architecture/service-boundaries.md               → Base interaction rules
+knowledge/architecture/service-boundaries.learned.yaml     → Recent communications
+knowledge/architecture/design-patterns.md                  → Required patterns
+knowledge/architecture/tech-stack.md                       → Framework versions
+knowledge/architecture/tech-stack.learned.yaml             → Recent dependency changes
+knowledge/packages/core-packages.md                        → Shared libraries
 ```
 
-# Cookbook
-
-| Recipe | Purpose |
-|--------|---------|
-| `discover-affected.md` | How to find affected services |
-| `consult-architects.md` | Subagent consultation workflow |
-| `synthesize-plan.md` | How to combine inputs into plan |
-| `validate-plan.md` | Plan validation criteria |
-| `generate-output.md` | Output file generation |
-
-# Tools
-
-| Tool | Purpose |
-|------|---------|
-| `feature-analysis.py` | Multi-command feature analysis tool |
+**Note**: This skill READS learned YAML but does NOT write to it.
+Recording happens in `commit-manager` after implementation is committed.
 
 # Workflow
 
@@ -69,19 +58,11 @@ knowledge/packages/core-packages.md       → Shared libraries and APIs
 │                                                                              │
 │  PHASE 1: DISCOVERY                                                          │
 │  ─────────────────                                                           │
-│  scripts/feature-analysis.py discover                                        │
-│    • Extract keywords from description                                       │
-│    • Scan repos for affected services                                        │
-│    • Classify: frontend, backend, shared, infra                              │
+│  • Load knowledge (base MD + learned YAML)                                   │
+│  • Parse feature requirements                                                │
+│  • Identify affected services using Glob/Grep                                │
 │                                                                              │
-│  PHASE 2: DESIGN PATTERNS                                                    │
-│  ────────────────────────                                                    │
-│  Spawn: design-pattern-advisor (suggest mode)                                │
-│    • Recommend patterns for the feature                                      │
-│    • Identify core components to use                                         │
-│    • Provide code examples                                                   │
-│                                                                              │
-│  PHASE 3: ARCHITECTURAL CONSULTATION                                         │
+│  PHASE 2: ARCHITECTURAL CONSULTATION                                         │
 │  ───────────────────────────────────                                         │
 │  Spawn parallel subagents:                                                   │
 │    ├──► master-architect ──► System constraints                              │
@@ -90,27 +71,22 @@ knowledge/packages/core-packages.md       → Shared libraries and APIs
 │    ├──► core-validator ──► Library impacts                                   │
 │    └──► infrastructure-validator ──► Deployment needs                        │
 │                                                                              │
-│  PHASE 4: SYNTHESIS                                                          │
+│  PHASE 3: SYNTHESIS                                                          │
 │  ─────────────────                                                           │
-│  scripts/feature-analysis.py synthesize                                      │
-│    • Combine all architectural inputs                                        │
-│    • Include design pattern recommendations                                  │
-│    • Identify dependencies                                                   │
-│    • Generate phased task breakdown                                          │
+│  • Combine all architectural inputs                                          │
+│  • Identify dependencies and sequencing                                      │
+│  • Generate phased task breakdown                                            │
 │                                                                              │
-│  PHASE 5: VALIDATION                                                         │
+│  PHASE 4: VALIDATION                                                         │
 │  ───────────────────                                                         │
 │  Spawn: plan-validator                                                       │
 │    • Check 8 validation dimensions                                           │
 │    • Verify pattern compliance                                               │
-│    • Security compliance                                                     │
-│    • Dependency ordering                                                     │
 │                                                                              │
-│  PHASE 6: OUTPUT                                                             │
+│  PHASE 5: OUTPUT                                                             │
 │  ────────────────                                                            │
-│  scripts/feature-analysis.py write-plan                                      │
-│    • feature-{name}-plan.md                                                  │
-│    • feature-{name}-tasks.json                                               │
+│  • Write plan document (Markdown)                                            │
+│  • Write task breakdown (JSON)                                               │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -119,34 +95,58 @@ knowledge/packages/core-packages.md       → Shared libraries and APIs
 
 ## Phase 1: Discovery
 
-```bash
-python skills/feature-planning/tools/feature-analysis.py discover \
-  --feature "$FEATURE_NAME" \
-  --description "$DESCRIPTION" \
-  --repos-root $REPOS_ROOT \
-  --output /tmp/affected-services.json
+### 1.1 Load Knowledge (Base + Learned)
+```
+Read: knowledge/architecture/system-architecture.md
+Read: knowledge/architecture/system-architecture.learned.yaml
+Read: knowledge/architecture/service-boundaries.md
+Read: knowledge/architecture/service-boundaries.learned.yaml
+Read: knowledge/architecture/design-patterns.md
+Read: knowledge/architecture/tech-stack.md
+Read: knowledge/architecture/tech-stack.learned.yaml
+Read: knowledge/packages/core-packages.md
 ```
 
-## Phase 2: Design Pattern Recommendations
+Check learned YAML for:
+- Recent features affecting same services (avoid conflicts)
+- Recent breaking changes to consider
+- Recently established communications
 
+### 1.2 Parse Feature Request
+Extract from $DESCRIPTION:
+- Core functionality
+- User stories / acceptance criteria
+- Integration points
+- Data requirements
+
+### 1.3 Identify Affected Services
+
+Discover services:
 ```
-Task: spawn design-pattern-advisor
-Prompt: |
-  Suggest design patterns for feature:
-  Feature: $FEATURE_NAME
-  Description: $DESCRIPTION
-  Mode: suggest
-
-  Provide:
-  - Recommended patterns with rationale
-  - Core components to use (@core/ui, Core.Data, etc.)
-  - Code examples for frontend and backend
-  - Common pitfalls to avoid
+Glob: $REPOS_ROOT/*/                → Find all repositories
 ```
 
-Save output to `/tmp/design-patterns-input.json`
+Classify each service:
+```
+Glob: [repo]/package.json           → Frontend (check for React/Vue)
+Glob: [repo]/*.csproj               → .NET backend
+Glob: [repo]/go.mod                 → Go backend
+```
 
-## Phase 3: Architectural Consultation
+Search for feature-related code:
+```
+Grep: "[feature keywords]" in [service]/src/**/*
+```
+
+### 1.4 Analyze Current State
+For each affected service:
+```
+Grep: "interface" in [service]/src/**/*     → Existing interfaces
+Grep: "\[Route\(" in [service]/src/**/*     → Current endpoints
+Grep: "class.*Entity" in [service]/src/**/* → Existing entities
+```
+
+## Phase 2: Architectural Consultation
 
 **Spawn these subagents in PARALLEL:**
 
@@ -157,9 +157,13 @@ Prompt: |
   Analyze feature for architectural fit:
   Feature: $FEATURE_NAME
   Description: $DESCRIPTION
-  Affected: [from discovery]
+  Affected services: [from discovery]
 
-  Provide: constraints, communication patterns, concerns
+  Provide:
+  - System-wide architectural constraints
+  - Cross-service communication requirements
+  - Data flow recommendations
+  - Potential architectural concerns
 ```
 
 ### Frontend Analysis
@@ -170,7 +174,10 @@ Prompt: |
   Feature: $FEATURE_NAME
   Description: $DESCRIPTION
 
-  Provide: component patterns, state management, UI consistency
+  Provide:
+  - Recommended component patterns
+  - State management approach
+  - UI consistency requirements
 ```
 
 ### Backend Analysis
@@ -181,7 +188,10 @@ Prompt: |
   Feature: $FEATURE_NAME
   Description: $DESCRIPTION
 
-  Provide: API design, database changes, security requirements
+  Provide:
+  - API design recommendations
+  - Database schema changes
+  - Security considerations
 ```
 
 ### Core Library Impact
@@ -191,7 +201,10 @@ Prompt: |
   Analyze core library impact:
   Feature: $FEATURE_NAME
 
-  Provide: shared utilities needed, breaking change risks
+  Provide:
+  - Shared utilities needed
+  - Core package changes required
+  - Breaking change risks
 ```
 
 ### Infrastructure
@@ -201,49 +214,94 @@ Prompt: |
   Analyze infrastructure needs:
   Feature: $FEATURE_NAME
 
-  Provide: deployment changes, CI/CD updates, scaling needs
+  Provide:
+  - Deployment changes needed
+  - Environment configurations
+  - Scaling considerations
 ```
 
-## Phase 4: Synthesis
+## Phase 3: Synthesis
 
-```bash
-python skills/feature-planning/tools/feature-analysis.py synthesize \
-  --master-input /tmp/master-input.json \
-  --frontend-input /tmp/frontend-input.json \
-  --backend-input /tmp/backend-input.json \
-  --core-input /tmp/core-input.json \
-  --infra-input /tmp/infra-input.json \
-  --design-patterns-input /tmp/design-patterns-input.json \
-  --output /tmp/synthesized.json
+### 3.1 Aggregate Inputs
+Collect all subagent responses and identify:
+- Common themes and requirements
+- Conflicting recommendations (if any)
+- Critical path dependencies
+
+### 3.2 Generate Implementation Plan
+
+Structure the plan as Markdown:
+
+```markdown
+# Feature: $FEATURE_NAME
+
+## Overview
+[Summary from synthesis]
+
+## Architectural Decisions
+[Key decisions with rationale]
+
+## Implementation Phases
+
+### Phase 1: Foundation
+- [ ] Task 1.1: ...
+- [ ] Task 1.2: ...
+
+### Phase 2: Backend Implementation
+- [ ] Task 2.1: ...
+
+### Phase 3: Frontend Implementation
+- [ ] Task 3.1: ...
+
+### Phase 4: Integration
+- [ ] Task 4.1: ...
+
+### Phase 5: Testing & Validation
+- [ ] Task 5.1: ...
+
+## Dependencies
+[Ordered list]
+
+## Risk Assessment
+[Identified risks and mitigations]
+
+## Estimated Effort
+[Complexity and time estimates]
 ```
 
-## Phase 5: Validation
+## Phase 4: Validation
 
 ```
 Task: spawn plan-validator
 Prompt: |
   Validate implementation plan:
   Feature: $FEATURE_NAME
-  Plan: [synthesized plan]
+  Plan: [generated plan]
   Level: $VALIDATION_LEVEL
 
-  Check all 8 dimensions, return issues and recommendations.
+  Check:
+  - Architectural rule compliance
+  - Service boundary constraints
+  - Pattern compliance
+  - Security requirements
+  - Dependency ordering
 ```
 
-## Phase 6: Output
+Handle validation results:
+- PASS → Proceed to output
+- WARN → Note warnings in plan, proceed
+- FAIL → Revise plan based on feedback, re-validate
 
-```bash
-# Generate plan document
-python skills/feature-planning/tools/feature-analysis.py write-plan \
-  --feature "$FEATURE_NAME" \
-  --plan /tmp/validated-plan.json \
-  --output "$OUTPUT_DIR/feature-$FEATURE_NAME-plan.md"
+## Phase 5: Output
 
-# Generate task export (optional)
-python skills/feature-planning/tools/feature-analysis.py export-tasks \
-  --plan /tmp/validated-plan.json \
-  --format github-issues \
-  --output "$OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json"
+Write plan document:
+```
+Write: $OUTPUT_DIR/feature-$FEATURE_NAME-plan.md
+```
+
+Write task breakdown (optional):
+```
+Write: $OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json
 ```
 
 # Report Format
@@ -280,42 +338,28 @@ python skills/feature-planning/tools/feature-analysis.py export-tasks \
 }
 ```
 
-# Output Files
+# Note on Learnings
 
-| File | Format | Purpose |
-|------|--------|---------|
-| `feature-{name}-plan.md` | Markdown | Human-readable implementation plan |
-| `feature-{name}-tasks.json` | JSON | Import to Jira/GitHub/Linear |
-| `feature-{name}-validation.json` | JSON | Validation results |
+**This skill does NOT record learnings.**
 
-# Scripts Reference
+Recording happens in `commit-manager` AFTER implementation is complete.
+This ensures single-writer pattern and prevents concurrent write conflicts.
 
-| Script | Purpose |
-|--------|---------|
-| `feature-analysis.py discover` | Find affected services |
-| `feature-analysis.py synthesize` | Combine architectural inputs |
-| `feature-analysis.py generate-tasks` | Create task breakdown |
-| `feature-analysis.py write-plan` | Generate plan document |
-| `feature-analysis.py export-tasks` | Export for trackers |
-| `plan-validation.py` | Validate plan against rules |
+The flow is:
+1. feature-planner → creates plan
+2. User implements the plan
+3. commit-manager → commits changes AND records learnings
 
 # Task Export Formats
 
-```bash
-# GitHub Issues
---format github-issues
+The task JSON can be formatted for:
+- GitHub Issues
+- Jira
+- Linear
 
-# Jira
---format jira
-
-# Linear
---format linear
-```
-
-# Follow-up Skills
+# Related Skills
 
 After plan is approved:
-- `design-patterns` - Validate implementation follows recommended patterns
+- `design-patterns` - Validate implementation follows patterns
 - `validation` - Validate implementation as you build
-- `commit-manager` - Generate commit messages for changes
-- `package-release` - Update packages if core changes made
+- `commit-manager` - Commit changes and record learnings

@@ -38,42 +38,24 @@ All specific patterns are defined in knowledge files.
 - `$TARGET (string)`: File, directory, or feature description
 - `$TECH_STACK (string)`: frontend|backend|both (auto-detect)
 - `$STRICT (bool)`: Fail on pattern violations (default: false)
-- `$OUTPUT_DIR (string)`: Where to write reports
+- `$REPOS_ROOT (path)`: Root directory containing repositories
 
 # Knowledge References
 
-This skill loads ALL domain-specific information from:
+Load ALL domain-specific information from knowledge files:
 
 ```
-knowledge/architecture/design-patterns.md     → Required patterns for frontend/backend
-knowledge/validation/backend-patterns.md       → What to avoid with detection rules
-knowledge/packages/core-packages.md       → Shared libraries and their APIs
-knowledge/architecture/tech-stack.md          → Framework versions and conventions
+knowledge/architecture/design-patterns.md      → Required patterns for frontend/backend
+knowledge/validation/backend-patterns.md       → Backend validation rules, anti-patterns
+knowledge/validation/frontend-patterns.md      → Frontend validation rules, anti-patterns
+knowledge/packages/core-packages.md            → Shared libraries and their APIs
+knowledge/architecture/tech-stack.md           → Framework versions and conventions
 ```
 
 **IMPORTANT**: Do not hardcode any framework names, package names, or specific
 patterns in this skill. All such information must come from knowledge files.
 
-# Cookbook
-
-| Recipe | Purpose |
-|--------|---------|
-| `validate-mode.md` | How to validate existing code |
-| `suggest-mode.md` | How to recommend patterns |
-| `review-mode.md` | How to review code changes |
-| `pattern-matching.md` | Feature-to-pattern mapping rules |
-
-# Tools
-
-| Tool | Purpose |
-|------|---------|
-| `detect-stack.py` | Detect frameworks and tech stack |
-| `pattern-scanner.py` | Scan code for pattern usage |
-| `component-checker.py` | Check core component usage |
-| `anti-pattern-detector.py` | Find anti-patterns |
-| `parse-feature.py` | Extract keywords from feature description |
-| `get-changes.py` | Get git diff or PR changes |
-| `generate-report.py` | Format output reports |
+**Note**: This skill does NOT record learnings. Only `commit-manager` writes to learned YAML files.
 
 # Workflow
 
@@ -83,14 +65,15 @@ patterns in this skill. All such information must come from knowledge files.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  1. LOAD KNOWLEDGE                                                           │
-│     └──► Read design-patterns.md, anti-patterns.md, core-packages.md         │
+│     └──► Read design-patterns.md, backend/frontend-patterns.md,              │
+│          core-packages.md                                                    │
 │                                                                              │
 │  MODE: validate                                                              │
 │  ──────────────                                                              │
-│  2. Detect tech stack                                                        │
-│  3. Scan for pattern usage (against knowledge)                               │
-│  4. Check core component usage (against knowledge)                           │
-│  5. Detect anti-patterns (against knowledge)                                 │
+│  2. Detect tech stack (Glob for package.json, *.csproj)                      │
+│  3. Scan for pattern usage (Grep against knowledge patterns)                 │
+│  4. Check core component usage (Grep for imports)                            │
+│  5. Detect anti-patterns (Grep for anti-pattern markers)                     │
 │  6. Generate compliance report                                               │
 │                                                                              │
 │  MODE: suggest                                                               │
@@ -98,11 +81,11 @@ patterns in this skill. All such information must come from knowledge files.
 │  2. Parse feature requirements                                               │
 │  3. Match to pattern categories (from knowledge)                             │
 │  4. Identify core components to use (from knowledge)                         │
-│  5. Generate recommendations with examples (from knowledge)                  │
+│  5. Generate recommendations                                                 │
 │                                                                              │
 │  MODE: review                                                                │
 │  ────────────                                                                │
-│  2. Get code changes (diff/PR)                                               │
+│  2. Get code changes (git diff)                                              │
 │  3. Analyze pattern compliance (against knowledge)                           │
 │  4. Generate review comments                                                 │
 │                                                                              │
@@ -112,52 +95,83 @@ patterns in this skill. All such information must come from knowledge files.
 # Instructions
 
 ## 1. Load Knowledge First
+
 Always start by reading:
-- `knowledge/architecture/design-patterns.md` - Get required patterns
-- `knowledge/validation/backend-patterns.md` - Get anti-patterns to detect
-- `knowledge/packages/core-packages.md` - Get core component list
+```
+Read: knowledge/architecture/design-patterns.md
+Read: knowledge/validation/backend-patterns.md
+Read: knowledge/validation/frontend-patterns.md
+Read: knowledge/packages/core-packages.md
+Read: knowledge/architecture/tech-stack.md
+```
 
 ## Mode: Validate
 
 ### 2. Detect Tech Stack
-```bash
-python skills/design-patterns/tools/detect-stack.py \
-  --target "$TARGET" \
-  --output /tmp/stack-info.json
+```
+Glob: $TARGET/package.json          → Frontend (check contents for React/Vue)
+Glob: $TARGET/*.csproj              → .NET backend
+Glob: $TARGET/go.mod                → Go backend
 ```
 
-### 3. Spawn Design Pattern Advisor
+Read the found files to determine specific frameworks/versions.
+
+### 3. Scan for Pattern Usage
+
+For backend (patterns from knowledge):
 ```
-Task: spawn design-pattern-advisor
-Prompt: |
-  Validate design patterns in: $TARGET
-  Tech stack: [from detection]
-  Strict mode: $STRICT
-
-  Use knowledge from:
-  - knowledge/architecture/design-patterns.md
-  - knowledge/validation/backend-patterns.md
-  - knowledge/packages/core-packages.md
-
-  Return detailed report with locations and suggestions.
+Grep: "Repository" in $TARGET/src/**/*        → Repository pattern
+Grep: "IMediator" in $TARGET/src/**/*         → CQRS/Mediator pattern
+Grep: "Command" in $TARGET/src/**/*           → Command pattern
+Grep: "Query" in $TARGET/src/**/*             → Query pattern
 ```
 
-### 4. Generate Report
-```bash
-python skills/design-patterns/tools/generate-report.py \
-  --validation /tmp/validation-result.json \
-  --format markdown \
-  --output "$OUTPUT_DIR/pattern-report.md"
+For frontend (patterns from knowledge):
 ```
+Grep: "useState" in $TARGET/src/**/*          → React hooks
+Grep: "useQuery" in $TARGET/src/**/*          → Data fetching
+Grep: "createContext" in $TARGET/src/**/*     → Context API
+```
+
+### 4. Check Core Component Usage
+```
+Grep: "@core/" in $TARGET/src/**/*            → Core package imports
+Grep: "from 'Core." in $TARGET/src/**/*       → .NET Core imports
+```
+
+### 5. Detect Anti-Patterns
+
+For backend (from knowledge/validation/backend-patterns.md):
+```
+Grep: "new DbContext" in $TARGET/src/**/*     → Direct context instantiation
+Grep: "Thread.Sleep" in $TARGET/src/**/*      → Blocking calls
+Grep: "catch.*Exception" in $TARGET/src/**/*  → Generic exception handling
+```
+
+For frontend (from knowledge/validation/frontend-patterns.md):
+```
+Grep: "any" in $TARGET/src/**/*.ts            → TypeScript any usage
+Grep: "eslint-disable" in $TARGET/src/**/*    → Linting bypasses
+Grep: "// @ts-ignore" in $TARGET/src/**/*     → Type checking bypasses
+```
+
+### 6. Generate Compliance Report
+
+Compile findings into report with:
+- Patterns correctly used
+- Patterns missing (should be used)
+- Anti-patterns found
+- Core component usage
 
 ## Mode: Suggest
 
 ### 2. Parse Feature Description
-```bash
-python skills/design-patterns/tools/parse-feature.py \
-  --description "$TARGET" \
-  --output /tmp/feature-keywords.json
-```
+
+Extract keywords from $TARGET (feature description):
+- Data operations → Repository, CQRS patterns
+- User interactions → Command, Event patterns
+- UI components → Component, Container patterns
+- State management → Context, Store patterns
 
 ### 3. Spawn Design Pattern Advisor
 ```
@@ -171,32 +185,49 @@ Prompt: |
   - knowledge/packages/core-packages.md
 
   Provide:
-  - Recommended patterns with rationale (from knowledge)
-  - Core components to use (from knowledge)
-  - Code examples for your stack (from knowledge)
-  - Common pitfalls to avoid (from knowledge)
+  - Recommended patterns with rationale
+  - Core components to use
+  - Code examples
+  - Common pitfalls to avoid
 ```
 
 ## Mode: Review
 
 ### 2. Get Changes
-```bash
-python skills/design-patterns/tools/get-changes.py \
-  --staged \
-  --output /tmp/changes.json
+```
+Bash: git diff --cached --name-only     → List changed files
+Bash: git diff --cached                 → Get full diff
 ```
 
-### 3. Spawn Design Pattern Advisor
+For PR review:
+```
+Bash: gh pr diff $PR_NUMBER             → Get PR diff
+```
+
+### 3. Analyze Changes
+
+For each changed file:
+```
+Read: [changed-file]
+```
+
+Check against patterns from knowledge:
+- New code follows required patterns
+- No anti-patterns introduced
+- Core components used correctly
+
+### 4. Spawn Design Pattern Advisor
 ```
 Task: spawn design-pattern-advisor
 Prompt: |
   Review code changes:
-  Changes: [from changes.json]
+  Changes: [from git diff]
   Mode: review
 
   Use knowledge from:
   - knowledge/architecture/design-patterns.md
   - knowledge/validation/backend-patterns.md
+  - knowledge/validation/frontend-patterns.md
 
   For each file changed:
   - Check pattern compliance
@@ -211,25 +242,56 @@ Prompt: |
   "skill": "design-patterns",
   "mode": "validate|suggest|review",
   "status": "PASS|WARN|FAIL",
-  "target": "",
-  "tech_stack": {},
+  "target": "src/services/",
+  "tech_stack": {
+    "frontend": "React 18",
+    "backend": ".NET 8"
+  },
   "score": {
-    "pattern_compliance": 0,
-    "core_component_usage": 0,
-    "anti_pattern_free": 0,
-    "overall": 0
+    "pattern_compliance": 85,
+    "core_component_usage": 90,
+    "anti_pattern_free": 75,
+    "overall": 83
   },
   "patterns": {
-    "compliant": [],
-    "violations": [],
-    "missing": []
+    "compliant": [
+      {"pattern": "Repository", "locations": ["UserRepository.cs"]}
+    ],
+    "violations": [
+      {"pattern": "CQRS", "issue": "Missing command handler", "location": "UserService.cs"}
+    ],
+    "missing": [
+      {"pattern": "Mediator", "recommendation": "Use MediatR for command dispatch"}
+    ]
   },
   "core_components": {
-    "used_correctly": [],
-    "should_use": [],
+    "used_correctly": ["@core/ui/Button", "@core/forms/Input"],
+    "should_use": ["@core/hooks/useApi"],
     "deprecated_usage": []
   },
-  "anti_patterns": [],
-  "recommendations": []
+  "anti_patterns": [
+    {
+      "pattern": "Direct DbContext",
+      "location": "UserService.cs:45",
+      "suggestion": "Inject via constructor"
+    }
+  ],
+  "recommendations": [
+    "Add IMediator to UserService for command handling",
+    "Replace direct API calls with useApi hook"
+  ]
 }
 ```
+
+# Note on Learnings
+
+**This skill does NOT record learnings.**
+
+Pattern observations are validation findings, not architectural changes.
+Only `commit-manager` records learnings after actual code is committed.
+
+# Related Skills
+
+- `validation` - Full architectural validation
+- `feature-planning` - Plan new features with patterns
+- `commit-manager` - Commit pattern-compliant code

@@ -24,7 +24,8 @@ This prevents concurrent write conflicts from parallel agents.
 - `$TARGET_REPOS (string, optional)`: Comma-separated repo names, or "changed" for auto-detect
 - `$DRY_RUN (bool)`: Preview commits without executing (default: true)
 - `$AUTO_PUSH (bool)`: Push after commit (default: false)
-- `$TICKET_ID (string, optional)`: Ticket/issue ID to include in commit
+- `$TICKET_ID (string, optional)`: Jira ticket ID to include in commit (e.g., PROJ-123)
+- `$LINK_JIRA (bool)`: Link commits to Jira ticket (default: true if $TICKET_ID provided)
 
 # Knowledge References
 
@@ -32,6 +33,7 @@ Load base knowledge:
 ```
 knowledge/commit-conventions.md     → Commit message formats
 knowledge/packages/repo-config.md   → Repo-specific commit rules
+knowledge/jira/jira-config.md       → Jira configuration (if $TICKET_ID provided)
 ```
 
 For recording learnings, also reference:
@@ -209,6 +211,43 @@ For each repo:
 
 Push failures don't affect commits - user can retry push manually.
 
+## 6.5. Link to Jira (if $TICKET_ID provided)
+
+If `$TICKET_ID` is provided and `$LINK_JIRA` is true:
+
+### Add Commit Links to Jira
+```
+Task: spawn jira-integration
+Prompt: |
+  Ticket: $TICKET_ID
+  Action: link
+  Commits: [list of commit SHAs from all repos]
+```
+
+### Add Summary Comment
+```
+Task: spawn jira-integration
+Prompt: |
+  Ticket: $TICKET_ID
+  Action: comment
+  Comment: |
+    Commits pushed:
+    [For each repo]:
+    - [repo-name]: [commit-sha] - [commit-subject]
+
+    Branch: [branch-name]
+```
+
+### Include Ticket in Commit Message Footer
+When generating commit messages, if $TICKET_ID provided, add to footer:
+```
+feat(auth): add password reset flow
+
+Implement password reset with email verification.
+
+Refs: PROJ-123
+```
+
 ## 7. Record Learned Knowledge (SINGLE WRITER)
 
 **This is the ONLY place where learned knowledge is recorded.**
@@ -327,6 +366,11 @@ Grep: "secret\s*=" in [staged files]
     "communications": 0,
     "breaking_changes": 0,
     "skipped_reason": null
+  },
+  "jira": {
+    "ticket_id": "PROJ-123",
+    "linked": true,
+    "comment_added": true
   }
 }
 ```

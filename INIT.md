@@ -1,5 +1,60 @@
 # Claude Code Setup - Deployment Guide
 
+## Required Configuration
+
+Before deploying, you'll need to configure the following variables and files.
+
+### Environment Variables
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `JIRA_URL` | Optional | Your Jira instance URL | `https://mycompany.atlassian.net` |
+| `JIRA_USER` | Optional | Jira account email | `dev@mycompany.com` |
+| `JIRA_API_TOKEN` | Optional | Jira API token ([get here](https://id.atlassian.com/manage-profile/security/api-tokens)) | `ATATT3x...` |
+| `CONFLUENCE_URL` | Optional | Confluence instance URL | `https://mycompany.atlassian.net/wiki` |
+| `CONFLUENCE_USER` | Optional | Confluence account email | `dev@mycompany.com` |
+| `CONFLUENCE_API_TOKEN` | Optional | Confluence API token | `ATATT3x...` |
+| `GITHUB_TOKEN` | Optional | GitHub token for PR operations | `ghp_...` |
+
+Set these in your shell profile or `.env` file:
+```bash
+# ~/.bashrc or ~/.zshrc
+export JIRA_URL="https://mycompany.atlassian.net"
+export JIRA_USER="dev@mycompany.com"
+export JIRA_API_TOKEN="your-token-here"
+```
+
+### Knowledge Files to Configure
+
+| File | Required | What to Fill In |
+|------|----------|-----------------|
+| `knowledge/architecture/system-architecture.md` | **Yes** | Your ~40 microservices, ADRs, service categories |
+| `knowledge/architecture/service-boundaries.md` | **Yes** | Allowed communications, event topics, forbidden deps |
+| `knowledge/architecture/tech-stack.md` | **Yes** | .NET/React versions, packages, cloud provider |
+| `knowledge/architecture/design-patterns.md` | **Yes** | Required patterns, naming conventions, folder structure |
+| `knowledge/validation/backend-patterns.md` | **Yes** | C# grep patterns, anti-patterns, required attributes |
+| `knowledge/validation/frontend-patterns.md` | **Yes** | React/TS patterns, component conventions |
+| `knowledge/packages/core-packages.md` | **Yes** | Shared library exports, cross-cutting concerns |
+| `knowledge/packages/package-config.md` | **Yes** | Package names, npm/NuGet registries, CI workflows |
+| `knowledge/commit-conventions.md` | **Yes** | Commit format, scopes, ticket format |
+| `knowledge/jira/jira-config.md` | Optional | Jira projects, workflows, bug patterns |
+
+### Values to Replace in Knowledge Files
+
+Search for these placeholders and replace with your actual values:
+
+| Placeholder | Replace With | Found In |
+|-------------|--------------|----------|
+| `your-domain` | Your company domain | jira-config.md, docs-sync skill |
+| `@org/` | Your npm scope | core-packages.md, package-config.md |
+| `Org.` | Your NuGet namespace | core-packages.md, package-config.md |
+| `PROJ` | Your Jira project key | jira-config.md |
+| `ARCH` | Your Confluence space key | docs-sync skill |
+| `your-org` | Your GitHub org | jira-config.md |
+| Service names | Your actual service names | system-architecture.md, service-boundaries.md |
+
+---
+
 ## Deployment Steps
 
 ### 1. Copy the Setup to Your Repository
@@ -56,6 +111,39 @@ Edit each MD file in `knowledge/` with your actual system details:
 - Your commit message format
 - Your scopes (service names)
 - Your ticket/issue format
+
+**knowledge/jira/jira-config.md** (Optional - for Jira integration)
+- Your Jira URL and project keys
+- Workflow status mappings
+- Bug parsing patterns
+- Auto-transition rules
+
+### 2.5. Configure Jira Integration (Optional)
+
+If you want to use Jira integration for bug tickets:
+
+1. **Get Jira API Token**:
+   - Go to https://id.atlassian.com/manage-profile/security/api-tokens
+   - Create a new API token
+   - Save it securely
+
+2. **Set Environment Variables**:
+   ```bash
+   export JIRA_URL="https://your-domain.atlassian.net"
+   export JIRA_USER="your-email@domain.com"
+   export JIRA_API_TOKEN="your-api-token"
+   ```
+
+3. **Update jira-config.md**:
+   - Set your project keys
+   - Configure workflow statuses
+   - Map components to repositories
+
+4. **Test Connection**:
+   ```bash
+   curl -s -u "$JIRA_USER:$JIRA_API_TOKEN" \
+     "$JIRA_URL/rest/api/3/myself" | jq '.displayName'
+   ```
 
 ### 3. Initialize YAML Learned Files
 
@@ -183,6 +271,7 @@ Share with your team:
    - `/validate` - Check architecture patterns
    - `/commit` - Generate conventional commits
    - `/plan <feature>` - Plan implementation
+   - `/jira <ticket-id>` - Fetch and work on Jira tickets
 
 3. Knowledge files in `knowledge/` define our standards
 4. Agents auto-update `*.learned.yaml` with discovered patterns
@@ -208,7 +297,8 @@ Share with your team:
 
 ## Quick Checklist
 
-- [ ] Copy setup folders to repo
+### Required Setup
+- [ ] Copy setup folders to repo (`agents/`, `skills/`, `knowledge/`, `commands/`)
 - [ ] Fill in `system-architecture.md` with your services
 - [ ] Fill in `service-boundaries.md` with communication rules
 - [ ] Fill in `tech-stack.md` with your versions/tools
@@ -216,6 +306,132 @@ Share with your team:
 - [ ] Fill in `backend-patterns.md` with C# grep patterns
 - [ ] Fill in `frontend-patterns.md` with React grep patterns
 - [ ] Fill in `core-packages.md` with shared library exports
+- [ ] Fill in `package-config.md` with registries and package names
 - [ ] Fill in `commit-conventions.md` with your format
 - [ ] Test with `claude` command
+
+### Optional: Jira Integration
+- [ ] Get Jira API token from Atlassian
+- [ ] Set `JIRA_URL` environment variable
+- [ ] Set `JIRA_USER` environment variable
+- [ ] Set `JIRA_API_TOKEN` environment variable
+- [ ] Configure `jira-config.md` with project keys and workflows
+- [ ] Test with: `curl -s -u "$JIRA_USER:$JIRA_API_TOKEN" "$JIRA_URL/rest/api/3/myself"`
+
+### Optional: Confluence Integration
+- [ ] Set `CONFLUENCE_URL` environment variable
+- [ ] Set `CONFLUENCE_USER` environment variable
+- [ ] Set `CONFLUENCE_API_TOKEN` environment variable
+- [ ] Configure space key in docs-sync skill
+
+### Optional: GitHub Integration
+- [ ] Set `GITHUB_TOKEN` environment variable (for PR operations)
+
+### Final Steps
 - [ ] Decide git tracking for `.learned.yaml` files
+- [ ] Share team onboarding docs
+
+---
+
+## Jira Bug Fixing Workflow
+
+If you've configured Jira integration, you can fix bugs from tickets:
+
+```
+> Fix bugs from Jira ticket PROJ-123
+
+Expected flow:
+1. bug-triage fetches ticket from Jira
+2. Parses bug list from description
+3. Prioritizes and orders bugs
+4. Spawns bug-fixer for each bug
+5. Validates all fixes
+6. commit-manager commits with Jira linking
+7. Updates Jira ticket with results
+```
+
+---
+
+## Quick Reference: All Environment Variables
+
+Copy and customize this block for your shell profile:
+
+```bash
+# ============================================
+# Claude Code Multi-Agent Setup - Environment
+# ============================================
+
+# Jira Integration (Optional)
+export JIRA_URL="https://YOUR-DOMAIN.atlassian.net"
+export JIRA_USER="your-email@company.com"
+export JIRA_API_TOKEN="your-jira-api-token"
+
+# Confluence Integration (Optional)
+export CONFLUENCE_URL="https://YOUR-DOMAIN.atlassian.net/wiki"
+export CONFLUENCE_USER="your-email@company.com"
+export CONFLUENCE_API_TOKEN="your-confluence-api-token"
+
+# GitHub Integration (Optional)
+export GITHUB_TOKEN="ghp_your-github-token"
+
+# Azure DevOps Integration (Optional, if using instead of GitHub)
+# export AZURE_DEVOPS_PAT="your-azure-devops-pat"
+# export AZURE_DEVOPS_ORG="your-org-name"
+```
+
+---
+
+## Quick Reference: All Knowledge Files
+
+```
+knowledge/
+├── architecture/
+│   ├── system-architecture.md          # Your services, ADRs
+│   ├── system-architecture.learned.yaml # Auto-populated features
+│   ├── service-boundaries.md           # Communication rules
+│   ├── service-boundaries.learned.yaml # Auto-populated communications
+│   ├── design-patterns.md              # Required patterns
+│   ├── tech-stack.md                   # Versions, frameworks
+│   └── tech-stack.learned.yaml         # Auto-populated dependencies
+├── validation/
+│   ├── backend-patterns.md             # C#/.NET grep patterns
+│   └── frontend-patterns.md            # React/TS grep patterns
+├── packages/
+│   ├── core-packages.md                # Shared library exports
+│   └── package-config.md               # Registries, package names
+├── jira/
+│   └── jira-config.md                  # Jira projects, workflows
+└── commit-conventions.md               # Commit message format
+```
+
+---
+
+## Quick Reference: All Agents
+
+| Agent | Purpose | Tools |
+|-------|---------|-------|
+| `master-architect` | Architectural oversight, cross-service analysis | Read, Grep, Glob, Task |
+| `feature-planner` | Plan features across services | Read, Grep, Glob, Task |
+| `backend-pattern-validator` | Validate C#/.NET patterns | Read, Grep, Glob |
+| `frontend-pattern-validator` | Validate React/TS patterns | Read, Grep, Glob |
+| `core-validator` | Validate shared libraries | Read, Grep, Glob |
+| `infrastructure-validator` | Validate IaC (Terraform, etc.) | Read, Grep, Glob |
+| `plan-validator` | Validate implementation plans | Read, Grep, Glob |
+| `commit-manager` | Git commits + record learnings (single writer) | Read, Grep, Glob, Bash, Task |
+| `knowledge-updater` | Write to learned YAML files | Read, Write |
+| `bug-triage` | Orchestrate bug fixing from Jira | Read, Grep, Glob, Task |
+| `bug-fixer` | Apply individual bug fixes | Read, Grep, Glob, Edit, Bash |
+
+---
+
+## Quick Reference: All Skills
+
+| Skill | Trigger | Purpose |
+|-------|---------|---------|
+| `validation` | `/validate` | Run architectural validation |
+| `feature-planning` | `/plan-feature` | Plan feature implementation |
+| `design-patterns` | `/patterns` | Validate/suggest patterns |
+| `commit-manager` | `/commit` | Generate commits across repos |
+| `docs-sync` | `/sync-docs` | Sync docs with Confluence |
+| `package-release` | `/update-packages` | Propagate package versions |
+| `jira-integration` | `/jira` | Fetch tickets, update status |
