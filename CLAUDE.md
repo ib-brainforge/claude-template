@@ -7,7 +7,9 @@
 | User Request Pattern | Agent to Spawn | Command |
 |---------------------|----------------|---------|
 | "fix bugs from Jira/ticket" | `bug-triage` | `/fix-bugs TICKET-ID` |
-| "plan feature/implement feature" | `feature-planner` | `/plan-feature` |
+| "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fixer` | `/fix-bug "description"` |
+| "plan feature" / "analyze feature" | `feature-planner` | `/plan-feature "description"` |
+| "implement feature" / "build feature" | `feature-planner` | `/implement-feature "description"` |
 | "validate/check architecture" | `validation` skill | `/validate` |
 | "commit changes" | `commit-manager` | `/commit` |
 | "update packages" | `package-release` skill | `/update-packages` |
@@ -16,11 +18,42 @@
 
 When a request matches the patterns above, use the Task tool:
 
+**For bug fixes (from Jira):**
 ```
 Task: spawn bug-triage
 Prompt: |
   Fix bugs from Jira ticket: [TICKET-ID]
   $TICKET_ID = [TICKET-ID]
+  $REPOS_ROOT = [path to repos]
+```
+
+**For feature planning (no Jira needed):**
+```
+Task: spawn feature-planner
+Prompt: |
+  Plan feature implementation.
+  Feature: [USER'S FEATURE DESCRIPTION]
+  $REPOS_ROOT = [path to repos]
+  $OUTPUT_DIR = ./plans
+```
+
+**For feature implementation (plan + build):**
+```
+Task: spawn feature-planner
+Prompt: |
+  Plan AND implement feature.
+  Feature: [USER'S FEATURE DESCRIPTION]
+  $REPOS_ROOT = [path to repos]
+  $OUTPUT_DIR = ./plans
+  Mode: implement (plan first, then execute)
+```
+
+**For single bug fix (no Jira):**
+```
+Task: spawn bug-fixer
+Prompt: |
+  Fix bug based on description.
+  Bug: [USER'S BUG DESCRIPTION]
   $REPOS_ROOT = [path to repos]
 ```
 
@@ -57,10 +90,12 @@ When spawning agents, prefix your output:
 
 | Command | Description |
 |---------|-------------|
-| `/fix-bugs TICKET-ID` | Fix bugs from Jira ticket (uses bug-triage agent) |
+| `/fix-bugs TICKET-ID` | Fix multiple bugs from Jira ticket (uses bug-triage) |
+| `/fix-bug "description"` | Fix single bug you describe (no Jira needed) |
+| `/plan-feature "description"` | Plan feature implementation (analysis only) |
+| `/implement-feature "description"` | Plan AND implement feature (full workflow) |
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
-| `/plan-feature "name" "desc"` | Plan feature implementation |
 
 ## Agent System
 
