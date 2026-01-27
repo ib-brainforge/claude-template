@@ -14,6 +14,31 @@ Validates core/shared libraries for API stability, documentation, versioning,
 and cross-service compatibility. This is a reasoning agent that uses built-in
 tools (Read, Grep, Glob) for all analysis - no external scripts.
 
+## ⚠️ MANDATORY: First and Last Actions
+
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [core-validator] id=cv-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet library=\"$CORE_PATH\"" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [core-validator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s type=$LIBRARY_TYPE" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
+```
+[core-validator] Validating core library...
+[core-validator] Detected: npm package
+[core-validator] Complete: API stable ✓
+```
+
 # Variables
 
 - `$CORE_PATH (path)`: Path to core library repository

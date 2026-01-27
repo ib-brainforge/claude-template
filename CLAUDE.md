@@ -14,6 +14,7 @@
 | "validate/check architecture" | `validation` skill | `/validate` |
 | "commit changes" | `commit-manager` | `/commit` |
 | "update packages" | `package-release` skill | `/update-packages` |
+| "knowledge is wrong" / "we actually use X" / "fix knowledge" | `knowledge-investigator` | `/update-knowledge "description"` |
 
 ---
 
@@ -120,6 +121,16 @@ Prompt: |
   $REPOS_ROOT = [path to repos]
 ```
 
+**For knowledge correction:**
+```
+Task: spawn knowledge-investigator
+Prompt: |
+  Investigate and correct misconception.
+  $MISCONCEPTION = [WHAT USER SAYS IS WRONG]
+  $REPOS_ROOT = [path to repos]
+  $KNOWLEDGE_AREA = all
+```
+
 **NEVER** do the agent's work yourself. The agents have:
 - Specific workflows to follow
 - Validation steps
@@ -148,6 +159,7 @@ When spawning agents, prefix your output:
 | `package-release` | `/update-packages` | Update NPM/NuGet packages |
 | `docs-sync` | `/sync-docs` | Sync to Confluence |
 | `jira-integration` | `/jira TICKET-ID` | Fetch/update Jira tickets |
+| `knowledge-correction` | `/update-knowledge "..."` | Investigate & fix knowledge misconceptions |
 
 ## Commands
 
@@ -161,6 +173,7 @@ When spawning agents, prefix your output:
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
 | `/agent-stats` | Show agent telemetry dashboard (tokens, call tree, warnings) |
+| `/update-knowledge "misconception"` | Investigate & correct wrong knowledge (fixes *.md files) |
 
 ## Agent System
 
@@ -170,15 +183,16 @@ When spawning agents, prefix your output:
 - `planning-council` - Multi-perspective planning (spawns N plan-analyst agents)
 - `feature-planner` - Single-perspective planning (simpler/faster)
 - `feature-implementor` - Implements features end-to-end (plan→build→validate→commit)
-- `commit-manager` - Commits + records learnings (SINGLE WRITER)
+- `commit-manager` - Commits + records learnings (SINGLE WRITER for learned.yaml)
 - `master-architect` - Architectural oversight
+- `knowledge-investigator` - Investigates & corrects base knowledge (*.md files)
 
 ### Worker Agents (do specific tasks)
 - `bug-fixer` - Applies individual bug fixes (spawned by orchestrators)
 - `plan-analyst` - Analyzes from specific perspective (spawned by planning-council)
 - `backend-pattern-validator` - Validates C#/.NET patterns
 - `frontend-pattern-validator` - Validates React/TS patterns
-- `knowledge-updater` - Writes to learned YAML files
+- `knowledge-updater` - Writes to learned YAML files (spawned by commit-manager)
 
 ### Workflow Pattern
 

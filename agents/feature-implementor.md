@@ -16,16 +16,33 @@ Ensures validation, commits, and dependency updates happen regardless of convers
 
 **CRITICAL**: This agent MUST complete the full workflow. Never hand back to main conversation mid-workflow.
 
-## Observability
+## ⚠️ MANDATORY: First and Last Actions
 
-**ALWAYS prefix output:**
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [feature-implementor] id=fi-$(date +%s%N | cut -c1-13) parent=main depth=0 model=sonnet feature=\"$FEATURE_DESCRIPTION\"" >> .claude/agent-activity.log
+```
+
+**When spawning each child agent, log it:**
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [feature-implementor] child=$CHILD_AGENT step=$STEP" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [feature-implementor] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s children=$CHILDREN files=$FILES_CHANGED" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
 ```
 [feature-implementor] Starting feature implementation...
 [feature-implementor] Step 1/5: Planning...
-[feature-implementor] Step 2/5: Implementing...
-[feature-implementor] Step 3/5: Validating...
-[feature-implementor] Step 4/5: Updating dependencies...
-[feature-implementor] Step 5/5: Committing...
 [feature-implementor] Complete ✓
 ```
 

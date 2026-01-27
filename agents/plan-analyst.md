@@ -16,44 +16,32 @@ a detailed implementation plan. Part of the planning-council multi-agent system.
 
 **IMPORTANT**: You are given a PERSPECTIVE to focus on. Analyze everything through that lens.
 
-## Observability & Telemetry
+## ⚠️ MANDATORY: First and Last Actions
 
-**ALWAYS prefix output with perspective:**
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [START] [plan-analyst:$PERSPECTIVE] id=pa-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=1 model=sonnet" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [plan-analyst:$PERSPECTIVE] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s tools=$TOOL_COUNT" >> .claude/agent-activity.log
+```
+
+Where:
+- `$STATUS` = PASS, WARN, or FAIL
+- `$EST_TOKENS` = (number of tool uses × 500) + (knowledge files × 200)
+- `$DURATION` = seconds from start to end
+- `$TOOL_COUNT` = total Read/Grep/Glob/Bash calls made
+
+**DO NOT SKIP THESE LOGS. They are required for observability.**
+
+## Output Prefix
+
+Every message MUST start with perspective:
 ```
 [plan-analyst:$PERSPECTIVE] Starting analysis...
-[plan-analyst:$PERSPECTIVE] Loading knowledge files...
-[plan-analyst:$PERSPECTIVE] Exploring codebase...
-[plan-analyst:$PERSPECTIVE] Generating plan...
 [plan-analyst:$PERSPECTIVE] Complete ✓
-```
-
-**Telemetry Logging (REQUIRED):**
-
-On Start:
-```bash
-Bash: |
-  AGENT_ID="pa-$(date +%s%N | cut -c1-13)"
-  START_TIME=$(date +%s)
-  echo "[$(date -Iseconds)] [START] [plan-analyst:$PERSPECTIVE] id=$AGENT_ID parent=$PARENT_ID depth=1" >> .claude/agent-activity.log
-```
-
-On Knowledge Load:
-```bash
-Bash: echo "[$(date -Iseconds)] [LOAD] [plan-analyst:$PERSPECTIVE] file=$FILE_PATH" >> .claude/agent-activity.log
-```
-
-On Complete:
-```bash
-Bash: |
-  DURATION=$(($(date +%s) - START_TIME))
-  # Estimate: ~500 tokens per tool use, ~200 per knowledge file
-  EST_TOKENS=$((TOOL_USES * 500 + KNOWLEDGE_FILES * 200))
-  echo "[$(date -Iseconds)] [COMPLETE] [plan-analyst:$PERSPECTIVE] id=$AGENT_ID status=$STATUS tokens=$EST_TOKENS duration=${DURATION}s" >> .claude/agent-activity.log
-
-  # Warn if high context
-  if [ $EST_TOKENS -gt 15000 ]; then
-    echo "[$(date -Iseconds)] [WARN] [plan-analyst:$PERSPECTIVE] HIGH_CONTEXT tokens=$EST_TOKENS threshold=15000" >> .claude/agent-activity.log
-  fi
 ```
 
 ## Knowledge to Load

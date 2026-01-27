@@ -21,22 +21,34 @@ Read: knowledge/architecture/system-architecture.md → Service map
 Read: knowledge/architecture/service-boundaries.md  → Service dependencies
 ```
 
-## Observability
+## ⚠️ MANDATORY: First and Last Actions
 
-**ALWAYS prefix output with agent identifier:**
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [bug-fix-orchestrator] id=bfo-$(date +%s%N | cut -c1-13) parent=main depth=0 model=sonnet bug=\"$BUG_DESCRIPTION\"" >> .claude/agent-activity.log
+```
+
+**When spawning each child agent, log it:**
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [bug-fix-orchestrator] child=$CHILD_AGENT step=$STEP" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-fix-orchestrator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s children=$CHILDREN" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
 ```
 [bug-fix-orchestrator] Starting bug fix workflow...
 [bug-fix-orchestrator] Step 1/4: Spawning bug-fixer...
-[bug-fix-orchestrator] Step 2/4: Spawning validator...
-[bug-fix-orchestrator] Step 3/4: Spawning commit-manager...
-[bug-fix-orchestrator] Step 4/4: Generating report...
 [bug-fix-orchestrator] Complete ✓
-```
-
-**Log significant events:**
-```
-Bash: echo "[$(date -Iseconds)] [bug-fix-orchestrator] Started for bug: $BUG_DESCRIPTION" >> .claude/agent-activity.log
-Bash: echo "[$(date -Iseconds)] [bug-fix-orchestrator] Step $STEP complete" >> .claude/agent-activity.log
 ```
 
 ## Input

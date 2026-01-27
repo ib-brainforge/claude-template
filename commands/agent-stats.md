@@ -77,21 +77,22 @@ echo "════════════════════════�
 echo "                   CONTEXT USAGE BY AGENT                       "
 echo "═══════════════════════════════════════════════════════════════"
 echo ""
-echo "Agent                          | Tokens    | Status | Duration"
-echo "-------------------------------|-----------|--------|----------"
+echo "Agent                          | Model   | Tokens    | Status | Duration"
+echo "-------------------------------|---------|-----------|--------|----------"
 
 grep "\[COMPLETE\]" .claude/agent-activity.log | tail -20 | while read line; do
   AGENT=$(echo "$line" | grep -oP '\[\K[^\]]+(?=\] id=)')
   TOKENS=$(echo "$line" | grep -oP 'tokens=\K[0-9]+')
   STATUS=$(echo "$line" | grep -oP 'status=\K[A-Z]+')
   DURATION=$(echo "$line" | grep -oP 'duration=\K[0-9]+')
+  MODEL=$(echo "$line" | grep -oP 'model=\K[a-z]+' || echo "sonnet")
 
   # Warning indicator
   INDICATOR=""
   if [ "$TOKENS" -gt 15000 ]; then INDICATOR="⚠️ "; fi
   if [ "$TOKENS" -gt 30000 ]; then INDICATOR="🔴 "; fi
 
-  printf "%-30s | %9s | %6s | %6ss %s\n" "$AGENT" "$TOKENS" "$STATUS" "$DURATION" "$INDICATOR"
+  printf "%-30s | %-7s | %9s | %6s | %6ss %s\n" "$AGENT" "$MODEL" "$TOKENS" "$STATUS" "$DURATION" "$INDICATOR"
 done
 
 echo ""

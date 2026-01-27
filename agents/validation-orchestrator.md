@@ -14,6 +14,37 @@ Coordinates validation across all services by delegating to specialized validato
 aggregating results. This is a reasoning agent that uses built-in tools (Read, Grep, Glob)
 for discovery and delegates validation work to specialized agents via Task.
 
+## ⚠️ MANDATORY: First and Last Actions
+
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [validation-orchestrator] id=vo-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet scope=\"$SCOPE\"" >> .claude/agent-activity.log
+```
+
+**When spawning each child agent, log it:**
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [validation-orchestrator] child=$CHILD_AGENT service=$SERVICE_NAME" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [validation-orchestrator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s validators=$VALIDATOR_COUNT" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
+```
+[validation-orchestrator] Starting validation...
+[validation-orchestrator] Discovered 5 services
+[validation-orchestrator] Spawning validators in parallel...
+[validation-orchestrator] Complete: 4 PASS, 1 WARN ✓
+```
+
 # Variables
 
 - `$REPOS_ROOT (path)`: Root directory containing all repositories

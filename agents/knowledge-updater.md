@@ -22,6 +22,30 @@ what changed in the system, not what was observed during validation.
 - ❌ Validation passed (don't record)
 - ❌ File structure observed (don't record)
 
+## ⚠️ MANDATORY: First and Last Actions
+
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [knowledge-updater] id=ku-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=haiku type=\"$KNOWLEDGE_TYPE\"" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [knowledge-updater] status=$STATUS model=haiku tokens=$EST_TOKENS duration=${DURATION}s" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
+```
+[knowledge-updater] Recording to $KNOWLEDGE_TYPE...
+[knowledge-updater] Complete: Entry recorded ✓
+```
+
 # Variables
 
 - `$KNOWLEDGE_TYPE (string)`: Which knowledge area to update

@@ -22,26 +22,31 @@ Read: knowledge/validation/backend-patterns.md        → Backend conventions (i
 Read: knowledge/validation/frontend-patterns.md       → Frontend conventions (if frontend)
 ```
 
-## Observability
+## ⚠️ MANDATORY: First and Last Actions
 
-**ALWAYS prefix output with agent identifier:**
-```
-[bug-fixer] Starting fix for bug #1: "Login fails with special characters"
-[bug-fixer] Analyzing bug description...
-[bug-fixer] Keywords: login, password, special characters
-[bug-fixer] Searching for relevant code in auth-service...
-[bug-fixer] Found 3 relevant files
-[bug-fixer] Reading src/auth/login.cs...
-[bug-fixer] Identified root cause: password not URL-encoded
-[bug-fixer] Applying fix to line 45...
-[bug-fixer] Running tests...
-[bug-fixer] Fix complete: 1 file modified, tests passing
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [START] [bug-fixer] id=bf-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=1 model=sonnet bug=\"$BUG_DESCRIPTION\"" >> .claude/agent-activity.log
 ```
 
-**Log significant events:**
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-fixer] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s files=$FILES_CHANGED" >> .claude/agent-activity.log
 ```
-Bash: echo "[$(date -Iseconds)] [bug-fixer] Started bug #$BUG_ID" >> .claude/agent-activity.log
-Bash: echo "[$(date -Iseconds)] [bug-fixer] Fixed bug #$BUG_ID in $FILE" >> .claude/agent-activity.log
+
+Where:
+- `$STATUS` = PASS (fixed), WARN (needs review), or FAIL
+- `$EST_TOKENS` = (number of tool uses × 500)
+- `$FILES_CHANGED` = number of files modified
+
+**DO NOT SKIP THESE LOGS.**
+
+## Output Prefix
+
+Every message MUST start with:
+```
+[bug-fixer] Starting fix for bug: "..."
+[bug-fixer] Fix complete ✓
 ```
 
 ## Input

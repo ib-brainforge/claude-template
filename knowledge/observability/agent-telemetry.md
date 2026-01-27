@@ -4,6 +4,7 @@
 
 Track agent execution to understand:
 - **Call hierarchy** - Who spawned who
+- **Model usage** - Which model (haiku/sonnet/opus) each agent uses
 - **Context usage** - Tokens used per agent
 - **Parallelism** - How many agents ran concurrently
 - **Work distribution** - What each agent did
@@ -29,6 +30,7 @@ Each agent writes its telemetry when it starts and completes.
     {
       "id": "agent-001",
       "name": "planning-council",
+      "model": "sonnet",
       "parent_id": null,
       "depth": 0,
       "started_at": "2026-01-27T10:30:00Z",
@@ -51,6 +53,7 @@ Each agent writes its telemetry when it starts and completes.
     {
       "id": "agent-002",
       "name": "plan-analyst",
+      "model": "sonnet",
       "perspective": "Pragmatic",
       "parent_id": "agent-001",
       "depth": 1,
@@ -136,16 +139,17 @@ echo '{"session_id":"'$SESSION_ID'","agents":[],"call_tree":{}}' > "$TELEMETRY_F
 # When agent starts
 AGENT_ID="agent-$(date +%s%N | cut -c1-13)"
 START_TIME=$(date -Iseconds)
+MODEL="sonnet"  # From agent's YAML frontmatter (haiku/sonnet/opus)
 
 # Append to activity log
-echo "[${START_TIME}] [START] [$AGENT_NAME] id=$AGENT_ID parent=$PARENT_ID" >> .claude/agent-activity.log
+echo "[${START_TIME}] [START] [$AGENT_NAME] id=$AGENT_ID parent=$PARENT_ID model=$MODEL" >> .claude/agent-activity.log
 ```
 
 ### Record Agent Complete
 ```bash
 # When agent completes
 END_TIME=$(date -Iseconds)
-echo "[${END_TIME}] [COMPLETE] [$AGENT_NAME] id=$AGENT_ID status=$STATUS tokens=$TOTAL_TOKENS" >> .claude/agent-activity.log
+echo "[${END_TIME}] [COMPLETE] [$AGENT_NAME] id=$AGENT_ID status=$STATUS model=$MODEL tokens=$TOTAL_TOKENS duration=${DURATION}s" >> .claude/agent-activity.log
 ```
 
 ### Record Context Usage
@@ -160,21 +164,21 @@ echo "[$(date -Iseconds)] [CONTEXT] [$AGENT_NAME] input=$INPUT_TOKENS output=$OU
 Simple line-based log at `.claude/agent-activity.log`:
 
 ```
-[2026-01-27T10:30:00+00:00] [START] [planning-council] id=agent-001 parent=main depth=0
+[2026-01-27T10:30:00+00:00] [START] [planning-council] id=agent-001 parent=main depth=0 model=sonnet
 [2026-01-27T10:30:05+00:00] [SPAWN] [planning-council] spawning=plan-analyst perspective=Pragmatic
-[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Pragmatic] id=agent-002 parent=agent-001 depth=1
-[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Architectural] id=agent-003 parent=agent-001 depth=1
-[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Risk-Aware] id=agent-004 parent=agent-001 depth=1
-[2026-01-27T10:30:05+00:00] [START] [plan-analyst:User-Centric] id=agent-005 parent=agent-001 depth=1
-[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Performance] id=agent-006 parent=agent-001 depth=1
+[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Pragmatic] id=agent-002 parent=agent-001 depth=1 model=sonnet
+[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Architectural] id=agent-003 parent=agent-001 depth=1 model=sonnet
+[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Risk-Aware] id=agent-004 parent=agent-001 depth=1 model=sonnet
+[2026-01-27T10:30:05+00:00] [START] [plan-analyst:User-Centric] id=agent-005 parent=agent-001 depth=1 model=sonnet
+[2026-01-27T10:30:05+00:00] [START] [plan-analyst:Performance] id=agent-006 parent=agent-001 depth=1 model=sonnet
 [2026-01-27T10:30:10+00:00] [LOAD] [plan-analyst:Pragmatic] file=knowledge/architecture/system-architecture.md
-[2026-01-27T10:31:15+00:00] [COMPLETE] [plan-analyst:Pragmatic] id=agent-002 status=PASS tokens=14500 duration=70s
-[2026-01-27T10:31:20+00:00] [COMPLETE] [plan-analyst:Performance] id=agent-006 status=PASS tokens=13500 duration=75s
-[2026-01-27T10:31:25+00:00] [COMPLETE] [plan-analyst:Risk-Aware] id=agent-004 status=PASS tokens=13800 duration=80s
-[2026-01-27T10:31:30+00:00] [COMPLETE] [plan-analyst:User-Centric] id=agent-005 status=PASS tokens=14100 duration=85s
-[2026-01-27T10:31:35+00:00] [COMPLETE] [plan-analyst:Architectural] id=agent-003 status=PASS tokens=15200 duration=90s
+[2026-01-27T10:31:15+00:00] [COMPLETE] [plan-analyst:Pragmatic] id=agent-002 status=PASS model=sonnet tokens=14500 duration=70s
+[2026-01-27T10:31:20+00:00] [COMPLETE] [plan-analyst:Performance] id=agent-006 status=PASS model=sonnet tokens=13500 duration=75s
+[2026-01-27T10:31:25+00:00] [COMPLETE] [plan-analyst:Risk-Aware] id=agent-004 status=PASS model=sonnet tokens=13800 duration=80s
+[2026-01-27T10:31:30+00:00] [COMPLETE] [plan-analyst:User-Centric] id=agent-005 status=PASS model=sonnet tokens=14100 duration=85s
+[2026-01-27T10:31:35+00:00] [COMPLETE] [plan-analyst:Architectural] id=agent-003 status=PASS model=sonnet tokens=15200 duration=90s
 [2026-01-27T10:31:35+00:00] [WARN] [plan-analyst:Architectural] HIGH_CONTEXT tokens=15200 threshold=15000
-[2026-01-27T10:32:30+00:00] [COMPLETE] [planning-council] id=agent-001 status=PASS tokens=11700 duration=150s
+[2026-01-27T10:32:30+00:00] [COMPLETE] [planning-council] id=agent-001 status=PASS model=sonnet tokens=11700 duration=150s
 [2026-01-27T10:32:30+00:00] [SESSION] total_agents=6 total_tokens=82800 max_parallel=5
 ```
 

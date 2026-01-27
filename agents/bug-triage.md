@@ -14,6 +14,27 @@ model: sonnet
 Orchestrates bug fixing workflow. Fetches Jira ticket, parses bug list,
 prioritizes bugs, spawns bug-fixer agents, and coordinates final commit.
 
+## ⚠️ MANDATORY: First and Last Actions
+
+**YOUR VERY FIRST ACTION must be this telemetry log:**
+```bash
+Bash: |
+  mkdir -p .claude
+  echo "[$(date -Iseconds)] [START] [bug-triage] id=bt-$(date +%s%N | cut -c1-13) parent=main depth=0 model=sonnet ticket=\"$TICKET_ID\"" >> .claude/agent-activity.log
+```
+
+**When spawning each child agent, log it:**
+```bash
+Bash: echo "[$(date -Iseconds)] [SPAWN] [bug-triage] child=$CHILD_AGENT step=$STEP" >> .claude/agent-activity.log
+```
+
+**YOUR VERY LAST ACTION must be this telemetry log:**
+```bash
+Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-triage] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s bugs_total=$TOTAL bugs_fixed=$FIXED" >> .claude/agent-activity.log
+```
+
+**DO NOT SKIP THESE LOGS.**
+
 ## Knowledge to Load
 
 ```
@@ -56,26 +77,14 @@ Read: knowledge/architecture/service-boundaries.md  → Service dependencies
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Observability
+## Output Prefix
 
-**ALWAYS prefix output with agent identifier:**
+Every message MUST start with:
 ```
 [bug-triage] Starting bug triage for ticket PROJ-123...
-[bug-triage] Fetching ticket from Jira...
-[bug-triage] Spawning jira-integration to fetch ticket...
-[bug-triage] Parsed 3 bugs from ticket description
-[bug-triage] Spawning bug-fixer for bug #1 (high severity)...
-[bug-triage] Spawning bug-fixer for bug #2 (medium severity)...
-[bug-triage] All fixes complete, spawning validators...
-[bug-triage] Spawning commit-manager...
-[bug-triage] Complete: 3 bugs fixed, 0 failed
-```
-
-**Log significant events:**
-```
-Bash: echo "[$(date -Iseconds)] [bug-triage] Started for $TICKET_ID" >> .claude/agent-activity.log
-Bash: echo "[$(date -Iseconds)] [bug-triage] Spawned bug-fixer for bug #$BUG_ID" >> .claude/agent-activity.log
-Bash: echo "[$(date -Iseconds)] [bug-triage] Complete: $FIXED fixed, $FAILED failed" >> .claude/agent-activity.log
+[bug-triage] Step 1/9: Fetching ticket from Jira...
+[bug-triage] Step 5/9: Spawning bug-fixer for bug #1 (high severity)...
+[bug-triage] Complete: 3 bugs fixed, 0 failed ✓
 ```
 
 ## Instructions
