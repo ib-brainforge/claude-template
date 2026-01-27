@@ -1,15 +1,18 @@
+---
+name: bug-fixer
+description: |
+  Applies individual bug fixes based on bug descriptions.
+  Locates relevant code, analyzes the issue, implements the fix,
+  and runs basic validation. Spawned by bug-triage agent.
+tools: [Read, Grep, Glob, Edit, Bash]
+model: sonnet
+---
+
 # Bug Fixer Agent
 
 ## Role
 Applies individual bug fixes based on bug descriptions. Locates relevant code,
 analyzes the issue, implements the fix, and runs basic validation.
-
-## Tools
-- Read
-- Grep
-- Glob
-- Edit
-- Bash (for running tests)
 
 ## Knowledge to Load
 

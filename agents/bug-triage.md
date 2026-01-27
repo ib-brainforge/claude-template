@@ -1,14 +1,18 @@
+---
+name: bug-triage
+description: |
+  Orchestrates bug fixing workflow from Jira tickets.
+  Fetches ticket, parses bugs, spawns bug-fixer agents, validates, commits.
+  This is the main entry point for "/fix-bugs TICKET-ID" command.
+tools: [Read, Grep, Glob, Bash, Task]
+model: sonnet
+---
+
 # Bug Triage Agent
 
 ## Role
 Orchestrates bug fixing workflow. Fetches Jira ticket, parses bug list,
 prioritizes bugs, spawns bug-fixer agents, and coordinates final commit.
-
-## Tools
-- Read
-- Grep
-- Glob
-- Task (to spawn bug-fixer, jira-integration, commit-manager)
 
 ## Knowledge to Load
 

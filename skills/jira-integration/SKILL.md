@@ -47,11 +47,36 @@ knowledge/jira/jira-config.md         → Jira URL, project keys, workflows
 
 # Configuration
 
-Set your Jira details in environment:
+## Environment Variables (in .env file)
+
+Create a `.env` file in your **project root** (same level as `.claude` folder):
+```
+your-repos-root/
+├── .env              ← Create this file here
+├── .claude/
+├── knowledge/
+└── CLAUDE.md
+```
+
+Contents:
 ```bash
-JIRA_URL="https://your-domain.atlassian.net"
-JIRA_USER="your-email@domain.com"
-JIRA_API_TOKEN="your-api-token"
+# .env (add to .gitignore!)
+JIRA_URL=https://your-domain.atlassian.net
+JIRA_USER=your-email@domain.com
+JIRA_API_TOKEN=your-api-token
+```
+
+## Loading Environment Variables
+
+**IMPORTANT**: Before any Jira API call, load the .env file:
+```bash
+# Load .env and make variables available
+set -a && source .env && set +a
+```
+
+Or inline with the curl command:
+```bash
+(set -a && source .env && set +a && curl -s -u "$JIRA_USER:$JIRA_API_TOKEN" "$JIRA_URL/rest/api/3/issue/$TICKET_ID")
 ```
 
 # Workflow
@@ -106,8 +131,9 @@ Get:
 
 ## 2. Action: Fetch Ticket
 
+**IMPORTANT**: Always load .env before API calls:
 ```
-Bash: curl -s -u "$JIRA_USER:$JIRA_API_TOKEN" \
+Bash: set -a && source .env && set +a && curl -s -u "$JIRA_USER:$JIRA_API_TOKEN" \
   -H "Content-Type: application/json" \
   "$JIRA_URL/rest/api/3/issue/$TICKET_ID"
 ```

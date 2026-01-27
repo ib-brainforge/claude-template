@@ -51,13 +51,48 @@ Before deploying, you'll need to configure the following variables and files.
 | `CONFLUENCE_API_TOKEN` | Optional | Confluence API token | `ATATT3x...` |
 | `GITHUB_TOKEN` | Optional | GitHub token for PR operations | `ghp_...` |
 
-Set these in your shell profile or `.env` file:
+#### IMPORTANT: Use .env File (Not .zshrc)
+
+Claude Code doesn't inherit shell environment variables from `.zshrc` or `.bashrc`.
+You MUST use a `.env` file in your project root:
+
 ```bash
-# ~/.bashrc or ~/.zshrc
-export JIRA_URL="https://mycompany.atlassian.net"
-export JIRA_USER="dev@mycompany.com"
-export JIRA_API_TOKEN="your-token-here"
+# 1. Copy the example file
+cp .env.example .env
+
+# 2. Edit with your values
+nano .env
+
+# 3. Add to .gitignore (IMPORTANT - don't commit secrets!)
+echo ".env" >> .gitignore
 ```
+
+**Contents of .env:**
+```bash
+# .env file location: PROJECT ROOT (same level as .claude folder, NOT inside it)
+#
+# your-repos-root/
+# ├── .env              ← HERE
+# ├── .claude/
+# ├── knowledge/
+# └── CLAUDE.md
+
+JIRA_URL=https://mycompany.atlassian.net
+JIRA_USER=dev@mycompany.com
+JIRA_API_TOKEN=your-token-here
+
+CONFLUENCE_URL=https://mycompany.atlassian.net/wiki
+CONFLUENCE_USER=dev@mycompany.com
+CONFLUENCE_API_TOKEN=your-token-here
+
+GITHUB_TOKEN=ghp_your-github-token
+```
+
+**Why .env instead of .zshrc?**
+- Claude Code runs in isolated environment
+- Shell profile variables don't propagate to subagents
+- .env file is loaded explicitly before API calls
+- Keeps secrets out of version control
 
 ### Knowledge Files to Configure
 
