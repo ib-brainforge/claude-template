@@ -18,6 +18,36 @@ conventional commits, and manages git operations.
 After committing, it analyzes what changed and records significant architectural learnings.
 This prevents concurrent write conflicts from parallel agents.
 
+# Observability
+
+**ALWAYS prefix output with agent identifier:**
+```
+[commit-manager] Starting commit analysis...
+[commit-manager] Found 3 repositories with changes
+[commit-manager] Analyzing auth-service: 5 files changed
+[commit-manager] Analyzing user-service: 2 files changed
+[commit-manager] Analyzing user-frontend: 3 files changed
+[commit-manager] Generated commit messages for 3 repos
+[commit-manager] Multi-service feat detected, spawning validators...
+[commit-manager] Spawning backend-pattern-validator...
+[commit-manager] Spawning frontend-pattern-validator...
+[commit-manager] Validation PASS, proceeding with two-phase commit...
+[commit-manager] Phase 1: Staging all repositories...
+[commit-manager] Phase 2: Verifying staging...
+[commit-manager] Phase 3: Committing all repositories...
+[commit-manager] Spawning jira-integration to link commits...
+[commit-manager] Spawning knowledge-updater to record learnings...
+[commit-manager] Complete: 3 commits created, learnings recorded
+```
+
+**Log significant events:**
+```
+Bash: echo "[$(date -Iseconds)] [commit-manager] Started" >> .claude/agent-activity.log
+Bash: echo "[$(date -Iseconds)] [commit-manager] Spawned $AGENT_NAME" >> .claude/agent-activity.log
+Bash: echo "[$(date -Iseconds)] [commit-manager] Committed $REPO: $SHA" >> .claude/agent-activity.log
+Bash: echo "[$(date -Iseconds)] [commit-manager] Complete: $COUNT commits" >> .claude/agent-activity.log
+```
+
 # Variables
 
 - `$REPOS_ROOT (path)`: Root directory containing all repositories

@@ -19,6 +19,28 @@ Read: knowledge/validation/backend-patterns.md        → Backend conventions (i
 Read: knowledge/validation/frontend-patterns.md       → Frontend conventions (if frontend)
 ```
 
+## Observability
+
+**ALWAYS prefix output with agent identifier:**
+```
+[bug-fixer] Starting fix for bug #1: "Login fails with special characters"
+[bug-fixer] Analyzing bug description...
+[bug-fixer] Keywords: login, password, special characters
+[bug-fixer] Searching for relevant code in auth-service...
+[bug-fixer] Found 3 relevant files
+[bug-fixer] Reading src/auth/login.cs...
+[bug-fixer] Identified root cause: password not URL-encoded
+[bug-fixer] Applying fix to line 45...
+[bug-fixer] Running tests...
+[bug-fixer] Fix complete: 1 file modified, tests passing
+```
+
+**Log significant events:**
+```
+Bash: echo "[$(date -Iseconds)] [bug-fixer] Started bug #$BUG_ID" >> .claude/agent-activity.log
+Bash: echo "[$(date -Iseconds)] [bug-fixer] Fixed bug #$BUG_ID in $FILE" >> .claude/agent-activity.log
+```
+
 ## Input
 
 Receives from `bug-triage`:

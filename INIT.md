@@ -1,5 +1,40 @@
 # Claude Code Setup - Deployment Guide
 
+## CRITICAL: How Agent Routing Works
+
+Claude Code doesn't automatically use your agents. The `CLAUDE.md` file tells it when and how to use them.
+
+### The Problem
+If you say "fix bugs from Jira ticket BF-119", Claude Code might:
+- ❌ Do all the work itself (no subagents)
+- ❌ Skip validation steps
+- ❌ Not follow your workflows
+- ❌ Not log to activity file
+
+### The Solution
+The `CLAUDE.md` file contains **routing rules** that tell Claude Code:
+- When to spawn agents (based on request patterns)
+- Which agent to spawn
+- How to spawn it (using Task tool)
+
+### How to Trigger Agents
+
+| Method | Example | When to Use |
+|--------|---------|-------------|
+| Slash command | `/fix-bugs BF-119` | Explicit, guaranteed agent invocation |
+| Natural language | "fix bugs from ticket BF-119" | Works if CLAUDE.md routing is loaded |
+
+**Recommendation**: Use slash commands for reliability until you're confident the routing works.
+
+### If Agents Aren't Being Used
+
+1. Check that `CLAUDE.md` is in your project root
+2. Check that the routing rules section is at the TOP of CLAUDE.md
+3. Use slash commands explicitly: `/fix-bugs`, `/validate`, `/commit`
+4. Watch for `[agent-name]` prefixes in output
+
+---
+
 ## Required Configuration
 
 Before deploying, you'll need to configure the following variables and files.
@@ -435,3 +470,86 @@ knowledge/
 | `docs-sync` | `/sync-docs` | Sync docs with Confluence |
 | `package-release` | `/update-packages` | Propagate package versions |
 | `jira-integration` | `/jira` | Fetch tickets, update status |
+
+---
+
+## Observability: Identifying Subagent Activity
+
+The multi-agent system uses three methods to help you identify when subagents are working:
+
+### 1. Output Prefixes
+
+Every agent prefixes its output with its name in brackets:
+
+```
+[bug-triage] Starting bug triage for ticket PROJ-123...
+[bug-triage] Spawning jira-integration to fetch ticket...
+[jira-integration] Fetching ticket PROJ-123...
+[jira-integration] Complete: ticket fetched
+[bug-triage] Parsed 3 bugs from ticket description
+[bug-triage] Spawning bug-fixer for bug #1...
+[bug-fixer] Starting fix for bug #1: "Login fails with special characters"
+[bug-fixer] Searching for relevant code...
+[bug-fixer] Fix complete: 1 file modified
+[bug-triage] Spawning bug-fixer for bug #2...
+...
+```
+
+This lets you see the "call stack" of agents in real-time.
+
+### 2. Activity Log File
+
+Agents log significant events to `.claude/agent-activity.log`:
+
+```bash
+# Watch the log in real-time
+tail -f .claude/agent-activity.log
+
+# Example output:
+[2025-01-27T10:30:00+00:00] [bug-triage] Started for PROJ-123
+[2025-01-27T10:30:01+00:00] [bug-triage] Spawned jira-integration
+[2025-01-27T10:30:02+00:00] [jira-integration] Fetched ticket PROJ-123
+[2025-01-27T10:30:03+00:00] [bug-triage] Spawned bug-fixer for bug #1
+[2025-01-27T10:30:05+00:00] [bug-fixer] Fixed bug #1 in src/auth/login.cs
+[2025-01-27T10:30:06+00:00] [bug-triage] Spawned bug-fixer for bug #2
+[2025-01-27T10:30:08+00:00] [bug-fixer] Fixed bug #2 in src/auth/session.cs
+[2025-01-27T10:30:10+00:00] [commit-manager] Committed auth-service: abc123
+[2025-01-27T10:30:11+00:00] [bug-triage] Complete: 2 fixed, 0 failed
+```
+
+### 3. Final Report with Subagent Summary
+
+Every orchestrating agent includes a `subagents_spawned` section in its report:
+
+```json
+{
+  "agent": "bug-triage",
+  "status": "PASS",
+  "subagents_spawned": [
+    {"name": "jira-integration", "action": "fetch", "status": "PASS"},
+    {"name": "jira-integration", "action": "parse-bugs", "status": "PASS"},
+    {"name": "bug-fixer", "bug_id": 1, "status": "PASS"},
+    {"name": "bug-fixer", "bug_id": 2, "status": "PASS"},
+    {"name": "backend-pattern-validator", "status": "PASS"},
+    {"name": "commit-manager", "status": "PASS"},
+    {"name": "jira-integration", "action": "comment", "status": "PASS"}
+  ],
+  "bugs": { "total": 2, "fixed": 2, "failed": 0 }
+}
+```
+
+### How to Tell Main Conversation vs Subagent
+
+| Indicator | Main Conversation | Subagent |
+|-----------|-------------------|----------|
+| Output prefix | No prefix | `[agent-name]` prefix |
+| In activity log | Not logged | Logged with timestamp |
+| Report structure | No `subagents_spawned` | May have `subagents_spawned` |
+| Tool usage | Direct tool calls | Spawned via `Task` tool |
+
+### Debugging Tips
+
+1. **See all agent activity**: `tail -f .claude/agent-activity.log`
+2. **Count spawned agents**: Look for `subagents_spawned` in final report
+3. **Trace a specific agent**: `grep "[agent-name]" .claude/agent-activity.log`
+4. **Check for failures**: Look for `"status": "FAIL"` in reports

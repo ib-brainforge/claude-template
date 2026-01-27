@@ -56,6 +56,12 @@ Read: [file]              → Read specific files
 - Pattern category 1: See knowledge/validation/[topic].md
 - Pattern category 2: See knowledge/architecture/[topic].md
 
+# Output Prefix (Observability)
+<!-- ALWAYS prefix output with agent identifier -->
+[agent-name] Starting analysis...
+[agent-name] Loading knowledge files...
+[agent-name] Found X issues...
+
 # Report Format
 <!-- Exact output structure -->
 ```json
@@ -67,6 +73,48 @@ Read: [file]              → Read specific files
 }
 ```
 ```
+
+## Observability Requirements
+
+Every agent MUST follow these observability patterns to help users understand when subagents are working:
+
+### 1. Output Prefix
+Every message from an agent MUST start with the agent name in brackets:
+```
+[backend-pattern-validator] Starting validation of auth-service...
+[backend-pattern-validator] Loaded 15 patterns from knowledge files
+[backend-pattern-validator] Checking repository structure...
+[backend-pattern-validator] Found 2 warnings, 0 errors
+```
+
+### 2. Activity Logging
+When performing significant actions, log to activity file:
+```
+Bash: echo "[$(date -Iseconds)] [agent-name] action-description" >> .claude/agent-activity.log
+```
+
+Log these events:
+- Agent started with parameters
+- Knowledge files loaded
+- Subagents spawned (with their names)
+- Major analysis steps completed
+- Final status returned
+
+### 3. Subagent Tracking in Reports
+When spawning subagents, track them in the report:
+```json
+{
+  "agent": "parent-agent",
+  "subagents_spawned": [
+    {"name": "backend-pattern-validator", "status": "PASS", "duration_ms": 1200},
+    {"name": "frontend-pattern-validator", "status": "WARN", "duration_ms": 800}
+  ],
+  "status": "WARN",
+  ...
+}
+```
+
+---
 
 ## Design Principles
 
