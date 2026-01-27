@@ -141,7 +141,7 @@ Record learned knowledge ONLY when:
 
 ## How Agents Use This
 
-### When Planning (feature-planner)
+### Reading (All Agents)
 ```
 Read: knowledge/architecture/system-architecture.md        # Base
 Read: knowledge/architecture/system-architecture.learned.yaml  # Recent changes
@@ -152,19 +152,30 @@ Check recent features to understand:
 - Recent communications added?
 ```
 
-### After Implementation (feature-planner, commit-manager)
+### Writing (ONLY commit-manager)
+
+**Single Writer Pattern**: Only `commit-manager` writes to learned YAML files.
+This prevents concurrent write conflicts when multiple agents run in parallel.
+
 ```
-Task: spawn knowledge-updater
-Prompt: |
-  $KNOWLEDGE_TYPE = system-architecture
-  $LEARNING = {
-    "type": "feature",
-    "description": "Added lease_end_date to tenancy",
-    "ticket": "FEAT-123",
-    "affected_services": [...],
-    "breaking": false
-  }
+commit-manager (after commits complete)
+    │
+    └──► Task: spawn knowledge-updater
+         Prompt: |
+           $KNOWLEDGE_TYPE = system-architecture
+           $LEARNING = {
+             "type": "feature",
+             "description": "[from commit messages]",
+             "ticket": "FEAT-123",
+             "affected_services": [...],
+             "breaking": false
+           }
 ```
+
+**Why single writer?**
+- Parallel validation agents can't conflict
+- Learnings based on actual committed changes (not planned changes)
+- Clear ownership and responsibility
 
 ## Deduplication Rules
 

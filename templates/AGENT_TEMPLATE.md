@@ -196,9 +196,14 @@ knowledge/
 
 These agents validate code against patterns. They read knowledge but don't modify it.
 
-### Implementers (Record After Implementation)
-- feature-planner
-- commit-manager
-- master-architect (when making decisions)
+### Single Writer (Records Learnings)
+- **commit-manager** - ONLY agent that writes to learned YAML files
 
-These agents implement changes and record significant outcomes to learned YAML files.
+This prevents concurrent write conflicts. commit-manager records after commits complete,
+based on actual changes made (from git diff/commit messages).
+
+### Readers of Learned Knowledge
+- feature-planner - Reads learned YAML to check recent changes before planning
+- master-architect - Reads to understand recent architectural decisions
+
+These agents READ learned knowledge but do NOT write to it.

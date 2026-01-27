@@ -2,6 +2,7 @@
 name: commit-manager
 description: |
   Intelligent commit message generation and git operations across multiple repos.
+  ALSO: Single writer for learned knowledge - records all architectural changes after commits.
   Use for: committing changes, generating conventional commit messages,
   pushing to remote, handling multi-repo workflows.
 tools: [Read, Grep, Glob, Bash, Task]
@@ -11,8 +12,11 @@ model: sonnet
 # Purpose
 
 Analyzes code changes across repositories, generates semantic commit messages following
-conventional commits, and manages git operations. This is a reasoning agent that uses
-built-in tools (Read, Grep, Glob) for analysis and Bash only for git commands.
+conventional commits, and manages git operations.
+
+**IMPORTANT**: This is the ONLY agent that writes to learned knowledge files.
+After committing, it analyzes what changed and records significant architectural learnings.
+This prevents concurrent write conflicts from parallel agents.
 
 # Variables
 
@@ -24,27 +28,26 @@ built-in tools (Read, Grep, Glob) for analysis and Bash only for git commands.
 
 # Knowledge References
 
-Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+Load base knowledge:
 ```
-knowledge/commit-conventions.md              → Base commit message formats
-knowledge/commit-conventions.learned.yaml    → Learned commit patterns (auto-discovered)
-knowledge/packages/repo-config.md            → Base repo-specific commit rules
-knowledge/packages/package-config.learned.yaml → Learned package configs (auto-discovered)
+knowledge/commit-conventions.md     → Commit message formats
+knowledge/packages/repo-config.md   → Repo-specific commit rules
 ```
 
-**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
+For recording learnings, also reference:
+```
+knowledge/architecture/system-architecture.learned.yaml   → To record features
+knowledge/architecture/service-boundaries.learned.yaml    → To record communications
+knowledge/architecture/tech-stack.learned.yaml            → To record dependency changes
+```
 
 # Instructions
 
-## 1. Load Knowledge (Base + Learned)
+## 1. Load Knowledge
 ```
 Read: knowledge/commit-conventions.md
-Read: knowledge/commit-conventions.learned.yaml
 Read: knowledge/packages/repo-config.md
-Read: knowledge/packages/package-config.learned.yaml
 ```
-
-Merge patterns from both - learned YAML patterns extend base MD.
 
 ## 2. Discover Changed Repositories
 
@@ -78,7 +81,7 @@ For unstaged changes:
 Bash: cd [repo] && git diff --stat
 ```
 
-Categorize changed files by reading them:
+Categorize changed files:
 ```
 Glob: [repo]/src/**/*          → Source files
 Glob: [repo]/test/**/*         → Test files
@@ -148,11 +151,6 @@ Stage files:
 Bash: cd [repo] && git add [specific-files]
 ```
 
-Or stage all:
-```
-Bash: cd [repo] && git add .
-```
-
 Create commit:
 ```
 Bash: cd [repo] && git commit -m "[generated_message]"
@@ -164,7 +162,70 @@ Bash: cd [repo] && git commit -m "[generated_message]"
 Bash: cd [repo] && git push origin [current_branch]
 ```
 
-## 6. Generate Summary Report
+## 6. Record Learned Knowledge (SINGLE WRITER)
+
+**This is the ONLY place where learned knowledge is recorded.**
+
+After commits complete, analyze ALL changes made and record significant learnings.
+
+### 6.1 Determine What to Record
+
+From the commits made, identify:
+
+**Features (multi-service changes):**
+- feat commits touching multiple repos → Record as feature
+- New entity/component added → Record affected services
+
+**Communications (new service interactions):**
+- New event published/consumed → Record communication
+- New API endpoint called between services → Record communication
+
+**Breaking Changes:**
+- Any BREAKING commit → Record with migration notes
+
+**Dependencies:**
+- New package added to multiple services → Record to tech-stack
+
+### 6.2 Record Learnings
+
+Only call knowledge-updater if significant changes detected:
+
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = system-architecture
+  $LEARNING = {
+    "type": "feature",
+    "description": "[summarize from commit messages]",
+    "ticket": "$TICKET_ID",
+    "affected_services": [
+      {"name": "[repo-name]", "changes": ["[from commit]"]}
+    ],
+    "breaking": [true if any breaking commits]
+  }
+```
+
+If new service communication detected:
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = service-boundaries
+  $LEARNING = {
+    "type": "communication",
+    "from": "[calling service]",
+    "to": "[called service]",
+    "type": "event|http",
+    "contract": "[event name or endpoint]",
+    "ticket": "$TICKET_ID"
+  }
+```
+
+### 6.3 Skip Recording If
+
+- Only test/doc changes (not architectural)
+- Single file fix (not significant)
+- Refactor without behavior change
+- Style/formatting only
 
 # Validation Rules
 
@@ -215,32 +276,10 @@ Grep: "secret\s*=" in [staged files]
     "breaking_changes": 0
   },
   "learnings_recorded": {
-    "new_scopes": 0,
-    "commit_patterns": 0,
-    "violations_found": 0
+    "features": 1,
+    "communications": 0,
+    "breaking_changes": 0,
+    "skipped_reason": null
   }
 }
 ```
-
-## 7. Record Learnings (REQUIRED)
-
-After committing, record any NEW discoveries to learned knowledge:
-
-```
-Task: spawn knowledge-updater
-Prompt: |
-  Update learned knowledge with discoveries:
-  $KNOWLEDGE_TYPE = commit-conventions
-  $SOURCE_AGENT = commit-manager
-  $LEARNING = {
-    "commit_patterns": [newly observed commit patterns],
-    "scope_usage": [scopes used with occurrence counts],
-    "convention_violations": [any violations detected],
-    "new_scopes": [scopes not in base knowledge]
-  }
-```
-
-Only record if:
-- New scope not in base knowledge
-- New commit pattern observed
-- Violation detected (for future prevention)

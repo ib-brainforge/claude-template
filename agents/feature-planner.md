@@ -306,43 +306,17 @@ $OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json
 
 Format options: github-issues, jira, linear
 
-## Phase 6: Record to Learned Knowledge (After Implementation)
+# Note on Recording Learnings
 
-**IMPORTANT**: Call this ONLY after the feature is actually implemented, not after planning.
+**This agent does NOT record to learned knowledge files.**
 
-When implementation is complete, record the significant changes:
+Recording happens in `commit-manager` AFTER implementation is complete.
+This ensures single-writer pattern and prevents concurrent write conflicts.
 
-```
-Task: spawn knowledge-updater
-Prompt: |
-  $KNOWLEDGE_TYPE = system-architecture
-  $LEARNING = {
-    "type": "feature",
-    "description": "[what was implemented]",
-    "ticket": "$TICKET_ID",
-    "affected_services": [
-      {"name": "service-name", "changes": ["what changed"]}
-    ],
-    "breaking": true|false,
-    "notes": "any important context"
-  }
-```
-
-**Also record if new communications established:**
-```
-Task: spawn knowledge-updater
-Prompt: |
-  $KNOWLEDGE_TYPE = service-boundaries
-  $LEARNING = {
-    "type": "communication",
-    "from": "source-service",
-    "to": "target-service",
-    "type": "event|http|grpc",
-    "contract": "EventName or endpoint",
-    "purpose": "why this communication exists",
-    "ticket": "$TICKET_ID"
-  }
-```
+The flow is:
+1. feature-planner → creates plan
+2. User implements the plan
+3. commit-manager → commits changes AND records learnings
 
 # Report Format
 
