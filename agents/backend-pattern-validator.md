@@ -4,7 +4,7 @@ description: |
   Backend-specific pattern and architecture validator.
   Validates API design, database patterns, security practices.
   All specific patterns defined in knowledge files.
-tools: [Read, Grep, Glob]
+tools: [Read, Grep, Glob, Bash]
 model: sonnet
 ---
 

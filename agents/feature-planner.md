@@ -4,7 +4,7 @@ description: |
   Comprehensive feature analysis and implementation planning agent.
   Coordinates with architectural subagents to gather inputs, analyzes
   frontend/backend slice requirements, and produces validated implementation plans.
-tools: [Task, Read, Grep, Glob]
+tools: [Task, Read, Grep, Glob, Bash]
 model: sonnet
 ---
 

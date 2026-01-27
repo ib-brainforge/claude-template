@@ -4,7 +4,7 @@ description: |
   Frontend-specific pattern and architecture validator.
   Validates component structure, state management, styling conventions.
   All specific patterns defined in knowledge files.
-tools: [Read, Grep, Glob]
+tools: [Read, Grep, Glob, Bash]
 model: sonnet
 ---
 

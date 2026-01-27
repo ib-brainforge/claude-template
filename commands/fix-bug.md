@@ -8,101 +8,58 @@ allowed_tools: [Read, Task]
 
 Fix a bug based on your description. No Jira ticket needed.
 
-**CRITICAL**: Do NOT attempt to fix bugs yourself. The bug-fixer agent handles everything.
+**CRITICAL**: Do NOT fix the bug yourself. Spawn the `bug-fix-orchestrator` agent.
 
 ## Usage
 
 ```
 /fix-bug "Login fails when password contains special characters"
 /fix-bug "Dashboard shows wrong date format for Australian users"
-/fix-bug "API returns 500 when user has no profile picture"
 ```
 
-## Arguments
+## What To Do
 
-- `BUG_DESCRIPTION`: Description of the bug to fix
-
-## Workflow
-
-### 1. Spawn bug-fixer Agent
+**IMMEDIATELY spawn the orchestrator. Do NOT do any work yourself.**
 
 ```
-Task: spawn bug-fixer
+[main] Detected bug fix request
+[main] Spawning bug-fix-orchestrator...
+
+Task: spawn bug-fix-orchestrator
 Prompt: |
-  Fix bug based on description.
-
-  Bug: [BUG_DESCRIPTION]
+  Fix bug based on user description.
+  $BUG_DESCRIPTION = [THE USER'S BUG DESCRIPTION]
   $REPOS_ROOT = [current working directory]
-
-  Workflow:
-  1. Analyze bug description for keywords
-  2. Search codebase for relevant files
-  3. Identify root cause
-  4. Apply minimal fix
-  5. Run tests
-  6. Return report with business summary
 ```
 
-### 2. Validate Fix
+That's it. The orchestrator handles everything:
+1. Spawns `bug-fixer` to find and apply the fix
+2. Spawns `backend-pattern-validator` or `frontend-pattern-validator`
+3. Spawns `commit-manager` to commit
+4. Returns summary to user
+
+## Flow Diagram
 
 ```
-Task: spawn backend-pattern-validator (if backend code changed)
-Task: spawn frontend-pattern-validator (if frontend code changed)
-```
-
-### 3. Commit Changes
-
-```
-Task: spawn commit-manager
-Prompt: |
-  Commit bug fix.
-  Type: fix
-  Description: [BUG_DESCRIPTION]
-```
-
-## What Gets Spawned
-
-```
-/fix-bug "Login fails with special characters"
+/fix-bug "description"
        │
        ▼
-┌─────────────┐
-│  bug-fixer  │ ◄── Analyzes & fixes
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────┐
-│ pattern-validator       │ ◄── Validates fix
-│ (backend or frontend)   │
-└──────┬──────────────────┘
-       │
-       ▼
-┌────────────────┐
-│ commit-manager │ ◄── Commits with proper message
-└────────────────┘
-```
-
-## Example
-
-```
-/fix-bug "Users see 'undefined' instead of their name on the profile page"
-```
-
-Output:
-```
-[bug-fixer] Analyzing bug: "Users see 'undefined' instead of their name"
-[bug-fixer] Keywords: users, undefined, name, profile page
-[bug-fixer] Searching frontend code...
-[bug-fixer] Found: apps/web/src/components/Profile.tsx
-[bug-fixer] Root cause: Missing null check on user.displayName
-[bug-fixer] Applying fix...
-[bug-fixer] Running tests...
-[bug-fixer] Fix complete
-
-[commit-manager] Committing: fix(web): handle missing display name on profile
+┌──────────────────────┐
+│ bug-fix-orchestrator │ ◄── You spawn ONLY this
+└──────────┬───────────┘
+           │
+           ├──► bug-fixer (Step 1)
+           │         │
+           │         ▼
+           ├──► pattern-validator (Step 2)
+           │         │
+           │         ▼
+           └──► commit-manager (Step 3)
+                     │
+                     ▼
+               Report to user
 ```
 
 ## Related Commands
 
-- `/fix-bugs TICKET-ID` - Fix multiple bugs from Jira ticket
-- `/validate` - Validate architecture after changes
+- `/fix-bugs TICKET-ID` - Fix multiple bugs from Jira ticket (uses bug-triage)

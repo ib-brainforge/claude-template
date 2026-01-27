@@ -1,138 +1,107 @@
 ---
 name: /implement-feature
-description: Implement a feature using the multi-agent system (plan + execute)
+description: Implement a feature end-to-end using the multi-agent system
 allowed_tools: [Read, Task]
 ---
 
 # Purpose
 
-Plan AND implement a feature using the agent swarm. This is the full workflow from description to committed code.
+Implement a feature from start to finish: plan → build → validate → update deps → commit.
 
-**CRITICAL**: Do NOT attempt to implement features yourself. The agent system handles everything.
+**CRITICAL**: Do NOT implement features yourself. Spawn `feature-implementor`.
 
 ## Usage
 
 ```
-/implement-feature "Add user authentication with OAuth2"
-/implement-feature "Create dashboard widget for sales metrics"
+/implement-feature "Add inline-edit mode to BaseInput component"
+/implement-feature "Add OAuth2 authentication to user-service"
 ```
 
-## Arguments
+## What To Do
 
-- `FEATURE_DESCRIPTION`: Description of what the feature should do
-
-## Workflow
-
-### 1. Spawn feature-planner Agent (Planning Phase)
+**IMMEDIATELY spawn the orchestrator. Do NOT do any work yourself.**
 
 ```
-Task: spawn feature-planner
+[main] Detected feature implementation request
+[main] Spawning feature-implementor...
+
+Task: spawn feature-implementor
 Prompt: |
-  Plan feature implementation.
-
-  Feature: [FEATURE_DESCRIPTION]
+  Implement feature end-to-end.
+  Feature: [USER'S FEATURE DESCRIPTION]
+  Target: [TARGET SERVICE if mentioned]
   $REPOS_ROOT = [current working directory]
-  $OUTPUT_DIR = ./plans
 
-  Workflow:
-  1. Analyze feature requirements
-  2. Discover affected services
-  3. Spawn architectural subagents (parallel)
-  4. Synthesize implementation plan
-  5. Validate plan
-  6. Return plan for implementation
+  MUST complete full workflow:
+  1. Plan
+  2. Implement
+  3. Validate
+  4. Update dependencies (if core package changed)
+  5. Commit all changes
 ```
 
-### 2. Review Plan with User
+## If User Answers a Question
 
-Present the plan summary:
-- Affected services
-- Implementation phases
-- Estimated effort
-- Any warnings or concerns
+When user provides feedback/decision during the workflow, **RE-SPAWN the orchestrator**:
 
-Ask: "Proceed with implementation?"
-
-### 3. Execute Implementation (if approved)
-
-For each task in the plan, spawn appropriate agents:
-
-**Backend tasks:**
 ```
-Task: spawn backend-pattern-validator
+[main] User provided decision, re-spawning feature-implementor...
+
+Task: spawn feature-implementor
 Prompt: |
-  Implement backend task: [task description]
-  Service: [affected service]
-  Follow plan: [relevant plan section]
+  CONTINUE feature implementation with user decision.
+  Original feature: [ORIGINAL DESCRIPTION]
+  User decision: [WHAT USER CHOSE]
+  Previous work: [SUMMARY OF WHAT WAS DONE]
+  $REPOS_ROOT = [current working directory]
+
+  Resume and complete remaining steps:
+  - Validate all changes
+  - Update dependencies in consuming projects
+  - Commit everything
 ```
 
-**Frontend tasks:**
-```
-Task: spawn frontend-pattern-validator
-Prompt: |
-  Implement frontend task: [task description]
-  Service: [affected service]
-  Follow plan: [relevant plan section]
-```
+**NEVER continue the work yourself after user feedback!**
 
-### 4. Validate All Changes
+## Flow Diagram
 
 ```
-Task: spawn validation-orchestrator
-Prompt: |
-  Validate all changes for feature: [FEATURE_DESCRIPTION]
-  Changed services: [list]
-```
-
-### 5. Commit Changes
-
-```
-Task: spawn commit-manager
-Prompt: |
-  Commit all changes for feature: [FEATURE_DESCRIPTION]
-  Type: feat
-  Scope: [affected services]
-```
-
-## What Gets Spawned
-
-```
-/implement-feature "Add OAuth2 authentication"
+/implement-feature "Add inline edit"
        │
        ▼
-┌─────────────────┐
-│ feature-planner │ ◄── Phase 1: Planning
-└────────┬────────┘
-         │
-         ├──► master-architect
-         ├──► frontend-pattern-validator
-         ├──► backend-pattern-validator
-         ├──► core-validator
-         └──► infrastructure-validator
-                    │
-                    ▼
-           [User approves plan]
-                    │
-                    ▼
-┌─────────────────────────────┐
-│ Implementation Workers      │ ◄── Phase 2: Build
-├─────────────────────────────┤
-│ (spawned per task in plan)  │
-└────────────┬────────────────┘
-             │
-             ▼
-┌─────────────────────────────┐
-│ validation-orchestrator     │ ◄── Phase 3: Validate
-└────────────┬────────────────┘
-             │
-             ▼
-┌─────────────────────────────┐
-│ commit-manager              │ ◄── Phase 4: Commit
-└─────────────────────────────┘
+┌─────────────────────┐
+│ feature-implementor │ ◄── You spawn ONLY this
+└──────────┬──────────┘
+           │
+           ├──► feature-planner (Step 1: Plan)
+           │
+           ├──► [makes changes] (Step 2: Implement)
+           │
+           ├──► validators (Step 3: Validate)
+           │         │
+           │    ┌────┴────┐
+           │    ▼         ▼
+           │  backend   frontend
+           │  validator validator
+           │
+           ├──► [update package.json] (Step 4: Deps)
+           │
+           └──► commit-manager (Step 5: Commit)
+                     │
+                     ▼
+               Complete Report
 ```
+
+## What Gets Committed
+
+The `feature-implementor` ensures ALL changes are committed:
+
+1. **Core package changes** (if any)
+2. **Consumer project updates** (package.json version bumps)
+3. **Feature implementation** in target service
 
 ## Related Commands
 
-- `/plan-feature` - Planning only (no implementation)
-- `/fix-bugs TICKET-ID` - Fix bugs from Jira
-- `/validate` - Validate current architecture
+- `/plan-feature "description"` - Planning only (no implementation)
+- `/fix-bug "description"` - Fix a single bug
+- `/validate` - Validate architecture

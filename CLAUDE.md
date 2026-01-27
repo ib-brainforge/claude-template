@@ -7,12 +7,45 @@
 | User Request Pattern | Agent to Spawn | Command |
 |---------------------|----------------|---------|
 | "fix bugs from Jira/ticket" | `bug-triage` | `/fix-bugs TICKET-ID` |
-| "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fixer` | `/fix-bug "description"` |
+| "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fix-orchestrator` | `/fix-bug "description"` |
 | "plan feature" / "analyze feature" | `feature-planner` | `/plan-feature "description"` |
-| "implement feature" / "build feature" | `feature-planner` | `/implement-feature "description"` |
+| "implement feature" / "build feature" | `feature-implementor` | `/implement-feature "description"` |
 | "validate/check architecture" | `validation` skill | `/validate` |
 | "commit changes" | `commit-manager` | `/commit` |
 | "update packages" | `package-release` skill | `/update-packages` |
+
+---
+
+## ⚠️ CRITICAL: Never Break Orchestration
+
+**PROBLEM**: When user answers a question, main conversation "takes over" and does work manually, skipping validation/commit/dependency updates.
+
+**RULES**:
+1. **NEVER do implementation work yourself** - Always spawn agents
+2. **NEVER continue work after user feedback** - Re-spawn the orchestrator with context
+3. **If user answers a question** - Spawn agent again with their answer included
+4. **If agent reports needing decision** - After user decides, spawn agent again
+
+**Example - WRONG:**
+```
+Agent: "Should I use approach A or B?"
+User: "Use A"
+Main: *starts implementing A directly* ← WRONG!
+```
+
+**Example - CORRECT:**
+```
+Agent: "Should I use approach A or B?"
+User: "Use A"
+Main: [main] Re-spawning feature-implementor with user decision...
+Task: spawn feature-implementor
+Prompt: |
+  Continue feature implementation.
+  User decision: Use approach A
+  ... [include previous context]
+```
+
+**After ANY user interaction during a workflow, you MUST re-spawn the appropriate orchestrator.**
 
 ### How to Spawn Agents
 
@@ -39,21 +72,36 @@ Prompt: |
 
 **For feature implementation (plan + build):**
 ```
-Task: spawn feature-planner
+Task: spawn feature-implementor
 Prompt: |
-  Plan AND implement feature.
+  Implement feature end-to-end.
   Feature: [USER'S FEATURE DESCRIPTION]
+  Target: [TARGET SERVICE if specified]
   $REPOS_ROOT = [path to repos]
-  $OUTPUT_DIR = ./plans
-  Mode: implement (plan first, then execute)
+
+  MUST complete full workflow:
+  1. Plan → 2. Implement → 3. Validate → 4. Update deps → 5. Commit
+```
+
+**After user answers a question mid-workflow:**
+```
+Task: spawn feature-implementor
+Prompt: |
+  CONTINUE feature implementation with user decision.
+  Original feature: [FEATURE]
+  User decision: [WHAT USER CHOSE]
+  Previous context: [WHAT WAS DONE SO FAR]
+  $REPOS_ROOT = [path to repos]
+
+  Resume from step [N] and complete remaining steps.
 ```
 
 **For single bug fix (no Jira):**
 ```
-Task: spawn bug-fixer
+Task: spawn bug-fix-orchestrator
 Prompt: |
-  Fix bug based on description.
-  Bug: [USER'S BUG DESCRIPTION]
+  Fix bug based on user description.
+  $BUG_DESCRIPTION = [USER'S BUG DESCRIPTION]
   $REPOS_ROOT = [path to repos]
 ```
 
@@ -100,13 +148,15 @@ When spawning agents, prefix your output:
 ## Agent System
 
 ### Orchestrating Agents (spawn subagents)
-- `bug-triage` - Orchestrates bug fixing from Jira
-- `feature-planner` - Plans features across services
+- `bug-triage` - Orchestrates bug fixing from Jira (multi-bug)
+- `bug-fix-orchestrator` - Orchestrates single bug fix (no Jira)
+- `feature-planner` - Plans features (analysis only)
+- `feature-implementor` - Implements features end-to-end (plan→build→validate→commit)
 - `commit-manager` - Commits + records learnings (SINGLE WRITER)
 - `master-architect` - Architectural oversight
 
 ### Worker Agents (do specific tasks)
-- `bug-fixer` - Applies individual bug fixes
+- `bug-fixer` - Applies individual bug fixes (spawned by orchestrators)
 - `backend-pattern-validator` - Validates C#/.NET patterns
 - `frontend-pattern-validator` - Validates React/TS patterns
 - `knowledge-updater` - Writes to learned YAML files
