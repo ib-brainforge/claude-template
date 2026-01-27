@@ -4,7 +4,7 @@ description: |
   Frontend-specific pattern and architecture validator.
   Validates component structure, state management, styling conventions.
   All specific patterns defined in knowledge files.
-tools: [Read, Grep, Glob, Task]
+tools: [Read, Grep, Glob]
 model: sonnet
 ---
 
@@ -25,13 +25,10 @@ must be loaded from knowledge files. Do not hardcode any technology-specific pat
 
 # Knowledge References
 
-Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+Load patterns from base knowledge:
 ```
-knowledge/validation/frontend-patterns.md           → Base patterns (user-defined)
-knowledge/validation/frontend-patterns.learned.yaml → Learned patterns (auto-discovered)
+knowledge/validation/frontend-patterns.md  → Pattern definitions, grep patterns
 ```
-
-**Load order**: Base MD first, then YAML. YAML extends MD, patterns from both are used.
 
 **IMPORTANT**: Do not hardcode any grep patterns, framework names, or
 technology-specific patterns. All such information must come from knowledge files.
@@ -40,22 +37,11 @@ technology-specific patterns. All such information must come from knowledge file
 
 ## 1. Load Knowledge First (REQUIRED)
 
-### 1.1 Load Base Knowledge
 ```
 Read: knowledge/validation/frontend-patterns.md
 ```
 
-### 1.2 Load Learned Knowledge
-```
-Read: knowledge/validation/frontend-patterns.learned.yaml
-```
-
-Merge patterns from both:
-- Base MD provides standard patterns
-- Learned YAML provides discovered patterns with higher `occurrences`
-- If conflict, prefer learned (more recent/specific)
-
-The knowledge files define:
+The knowledge file defines:
 - Framework detection patterns
 - Component patterns per framework
 - State management patterns per framework
@@ -155,28 +141,6 @@ Grep: [core-package-name-from-knowledge] in $SERVICE_PATH/**/*
 
 Flag where custom implementations exist instead of core packages.
 
-## 8. Record Learnings (REQUIRED)
-
-After validation, record any NEW discoveries to learned knowledge:
-
-```
-Task: spawn knowledge-updater
-Prompt: |
-  Update learned knowledge with discoveries:
-  $KNOWLEDGE_TYPE = frontend-patterns
-  $SOURCE_AGENT = frontend-pattern-validator
-  $LEARNING = {
-    "patterns": [newly discovered patterns],
-    "anti_patterns": [newly discovered anti-patterns],
-    "conventions": [newly discovered conventions]
-  }
-```
-
-Only record if:
-- New pattern not in base knowledge
-- New anti-pattern discovered
-- Higher occurrence count than previously recorded
-
 # Report Format
 
 ```json
@@ -208,11 +172,6 @@ Only record if:
   "core_packages": {
     "used": [],
     "should_use": []
-  },
-  "learnings_recorded": {
-    "new_patterns": 0,
-    "new_anti_patterns": 0,
-    "updated_occurrences": 0
   },
   "summary": ""
 }

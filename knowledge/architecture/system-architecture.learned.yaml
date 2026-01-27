@@ -1,48 +1,40 @@
-# Learned System Architecture
-# Auto-updated by agents after implementations
-# DO NOT manually edit - use system-architecture.md for base knowledge
+# System Architecture - Learned Knowledge
+# Records: Features implemented, architectural decisions made
+# Updated by: feature-planner, master-architect AFTER implementations
+# DO NOT record: validation findings, grep matches, routine observations
 
 version: 1
 last_updated: null
 updated_by: null
 
-services: []
-# Discovered services not in base docs
-# - id: "svc-001"
-#   name: "notification-worker"
-#   type: "backend|frontend|worker|infra"
-#   path: "services/notification-worker"
-#   discovered_at: "2024-01-27"
-#   tech_stack: ["node", "redis"]
-#   communicates_with: ["user-api", "email-service"]
+# Features implemented (significant changes only)
+features: []
+# Example:
+#   - id: "feat-20240127-001"
+#     date: "2024-01-27"
+#     description: "Added lease_end_date to tenancy"
+#     ticket: "FEAT-123"
+#     affected_services:
+#       - name: "asset-backend"
+#         changes: ["Tenancy entity", "TenancyDto", "migration"]
+#       - name: "asset-mf"
+#         changes: ["TenancyForm", "types.ts"]
+#     breaking: false
+#     notes: "Optional nullable DateTime field"
 
-data_flows: []
-# Discovered data flows
-# - id: "flow-001"
-#   from: "order-api"
-#   to: "inventory-api"
-#   type: "sync|async|event"
-#   data: "OrderCreatedEvent"
-#   discovered_at: "2024-01-27"
-
-dependencies: []
-# Inter-service dependencies
-# - id: "dep-001"
-#   service: "order-api"
-#   depends_on: ["user-api", "product-api"]
-#   type: "runtime|build"
-
-adrs: []
-# Discovered architectural decisions (from code comments, patterns)
-# - id: "adr-001"
-#   title: "Use event sourcing for orders"
-#   discovered_in: "services/order-api"
-#   evidence: "Found EventStore usage"
-#   status: "implemented"
+# Architectural decisions made during implementations
+decisions: []
+# Example:
+#   - id: "adr-20240127-001"
+#     date: "2024-01-27"
+#     context: "Needed lease expiration tracking"
+#     decision: "Add nullable LeaseEndDate to Tenancy entity"
+#     alternatives_considered:
+#       - "Separate LeaseTerms table - rejected (overkill)"
+#     consequences: "Simple approach, can extend later"
+#     ticket: "FEAT-123"
 
 stats:
-  total_services: 0
-  total_data_flows: 0
-  total_dependencies: 0
-  total_adrs: 0
-  last_scan: null
+  total_features: 0
+  total_decisions: 0
+  last_update: null

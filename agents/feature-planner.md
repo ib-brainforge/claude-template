@@ -26,19 +26,21 @@ and delegates validation work to specialized agents via Task.
 
 # Knowledge References
 
-Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+Load base knowledge AND recent changes from learned YAML:
 ```
 knowledge/architecture/system-architecture.md             → Base system structure, service map
-knowledge/architecture/system-architecture.learned.yaml   → Learned services (auto-discovered)
+knowledge/architecture/system-architecture.learned.yaml   → Recent features, decisions
 knowledge/architecture/service-boundaries.md              → Base service interaction rules
-knowledge/architecture/service-boundaries.learned.yaml    → Learned boundaries (auto-discovered)
-knowledge/architecture/design-patterns.md                 → Base required patterns
-knowledge/architecture/design-patterns.learned.yaml       → Learned patterns (auto-discovered)
-knowledge/architecture/tech-stack.md                      → Base framework versions
-knowledge/architecture/tech-stack.learned.yaml            → Learned tech updates (auto-discovered)
+knowledge/architecture/service-boundaries.learned.yaml    → Recent communications, contracts
+knowledge/architecture/design-patterns.md                 → Required patterns
+knowledge/architecture/tech-stack.md                      → Framework versions
+knowledge/architecture/tech-stack.learned.yaml            → Recent dependency changes
 ```
 
-**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
+**Learned YAML files contain recent changes** - check them for:
+- Recent features affecting same services (avoid conflicts)
+- Recent breaking changes to consider
+- Recently established communications
 
 # Workflow
 
@@ -303,6 +305,44 @@ $OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json
 ```
 
 Format options: github-issues, jira, linear
+
+## Phase 6: Record to Learned Knowledge (After Implementation)
+
+**IMPORTANT**: Call this ONLY after the feature is actually implemented, not after planning.
+
+When implementation is complete, record the significant changes:
+
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = system-architecture
+  $LEARNING = {
+    "type": "feature",
+    "description": "[what was implemented]",
+    "ticket": "$TICKET_ID",
+    "affected_services": [
+      {"name": "service-name", "changes": ["what changed"]}
+    ],
+    "breaking": true|false,
+    "notes": "any important context"
+  }
+```
+
+**Also record if new communications established:**
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = service-boundaries
+  $LEARNING = {
+    "type": "communication",
+    "from": "source-service",
+    "to": "target-service",
+    "type": "event|http|grpc",
+    "contract": "EventName or endpoint",
+    "purpose": "why this communication exists",
+    "ticket": "$TICKET_ID"
+  }
+```
 
 # Report Format
 

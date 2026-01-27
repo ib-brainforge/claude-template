@@ -22,23 +22,23 @@ model: sonnet              # haiku|sonnet|opus based on complexity
 
 # Knowledge References
 
-Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+Load patterns from base knowledge:
 ```
-knowledge/[category]/[topic].md              → Base patterns (user-defined)
-knowledge/[category]/[topic].learned.yaml    → Learned patterns (auto-discovered)
+knowledge/[category]/[topic].md  → Pattern definitions, rules
 ```
 
-**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
+For implementation agents (feature-planner, etc.), also load recent changes:
+```
+knowledge/architecture/system-architecture.learned.yaml  → Recent features
+knowledge/architecture/service-boundaries.learned.yaml   → Recent communications
+```
 
 # Instructions
 
-## 1. Load Knowledge (Base + Learned)
+## 1. Load Knowledge
 ```
 Read: knowledge/[category]/[topic].md
-Read: knowledge/[category]/[topic].learned.yaml
 ```
-
-Merge patterns from both - learned YAML patterns extend base MD.
 
 ## 2. [Analysis Steps]
 <!-- Use built-in tools for all analysis -->
@@ -50,29 +50,6 @@ Read: [file]              → Read specific files
 
 ## 3. [Validation/Processing]
 <!-- Numbered steps for sequential logic -->
-
-## N. Record Learnings (REQUIRED)
-
-After completing work, record any NEW discoveries to learned knowledge:
-
-```
-Task: spawn knowledge-updater
-Prompt: |
-  Update learned knowledge with discoveries:
-  $KNOWLEDGE_TYPE = [topic]
-  $SOURCE_AGENT = [this-agent-name]
-  $SOURCE_FILE = [file that was analyzed]
-  $LEARNING = {
-    "patterns": [newly discovered patterns],
-    "anti_patterns": [newly discovered anti-patterns],
-    "conventions": [newly discovered conventions]
-  }
-```
-
-Only record if:
-- New pattern not in base knowledge
-- New anti-pattern discovered
-- Higher occurrence count than previously recorded
 
 # Validation Rules
 <!-- Specific rules to check - reference knowledge files -->
@@ -86,11 +63,6 @@ Only record if:
   "agent": "agent-name",
   "status": "PASS|WARN|FAIL",
   "issues": [],
-  "learnings_recorded": {
-    "new_patterns": 0,
-    "new_anti_patterns": 0,
-    "new_conventions": 0
-  },
   "summary": ""
 }
 ```
@@ -118,13 +90,36 @@ Only record if:
 
 ### Knowledge-Driven Patterns
 - All patterns/rules in knowledge files, NOT hardcoded in agents
-- Reference both MD (base) and YAML (learned) files
 - Agent is a reasoning engine, knowledge files are the rules
 
-### Self-Improving System
-- Load both base (MD) and learned (YAML) knowledge
-- After work completes, spawn knowledge-updater to record discoveries
-- YAML files accumulate patterns over time
+### Recording Learned Knowledge
+
+**WHO records:** Only implementation agents (feature-planner, commit-manager)
+**WHO doesn't:** Validators don't record - they only validate
+
+**WHAT to record:** Significant architectural changes only
+- ✅ New feature implemented across services
+- ✅ New service communication established
+- ✅ Breaking change made
+- ✅ Architectural decision with rationale
+- ❌ Pattern found during grep (don't record)
+- ❌ Validation passed (don't record)
+
+**HOW to record (for implementation agents only):**
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = system-architecture
+  $LEARNING = {
+    "type": "feature",
+    "description": "What was implemented",
+    "ticket": "FEAT-123",
+    "affected_services": [
+      {"name": "service", "changes": ["what changed"]}
+    ],
+    "breaking": false
+  }
+```
 
 ## Section Guidelines
 
@@ -140,21 +135,20 @@ Only record if:
 - Include defaults where applicable
 
 ### Knowledge References
-- List both MD and YAML files for each topic
-- Explain load order (MD first, YAML extends)
-- Group by category (validation/, architecture/, packages/)
+- List MD knowledge files needed
+- For implementation agents, also list learned YAML files to check recent changes
+- Validators only need MD files (they don't record)
 
 ### Instructions
 - Start with "Load Knowledge" section
 - Use tool syntax: `Glob:`, `Grep:`, `Read:`
-- End with "Record Learnings" section
 - Keep to 5-10 steps max
+- Implementation agents add "Record to Learned Knowledge" at end
 
 ### Report Format
 - Consistent JSON structure across all agents
 - Include `agent` field for identification
 - Status: PASS (all good), WARN (non-blocking), FAIL (blocking issues)
-- Include `learnings_recorded` for tracking self-improvement
 
 ## Tool Selection Guide
 
@@ -171,25 +165,40 @@ Only record if:
 
 ```
 knowledge/
-├── validation/           → Pattern validation rules
+├── validation/           → Pattern validation rules (validators read these)
 │   ├── backend-patterns.md
-│   ├── backend-patterns.learned.yaml
 │   ├── frontend-patterns.md
-│   └── frontend-patterns.learned.yaml
-├── architecture/         → System design rules
+│   └── security-standards.md
+├── architecture/         → System design rules + learned changes
 │   ├── system-architecture.md
-│   ├── system-architecture.learned.yaml
+│   ├── system-architecture.learned.yaml   ← Recent features, decisions
 │   ├── service-boundaries.md
-│   ├── service-boundaries.learned.yaml
+│   ├── service-boundaries.learned.yaml    ← Recent communications, contracts
 │   ├── design-patterns.md
-│   ├── design-patterns.learned.yaml
 │   ├── tech-stack.md
-│   └── tech-stack.learned.yaml
+│   └── tech-stack.learned.yaml            ← Recent dependency changes
 ├── packages/             → Package/repo config
 │   ├── core-packages.md
-│   ├── core-packages.learned.yaml
 │   ├── package-config.md
-│   ├── package-config.learned.yaml
 │   └── repo-config.md
 └── commit-conventions.md
 ```
+
+## Agent Types
+
+### Validators (Don't Record)
+- backend-pattern-validator
+- frontend-pattern-validator
+- infrastructure-validator
+- service-validator
+- core-validator
+- plan-validator
+
+These agents validate code against patterns. They read knowledge but don't modify it.
+
+### Implementers (Record After Implementation)
+- feature-planner
+- commit-manager
+- master-architect (when making decisions)
+
+These agents implement changes and record significant outcomes to learned YAML files.

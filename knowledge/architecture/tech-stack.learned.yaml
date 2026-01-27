@@ -1,57 +1,48 @@
-# Learned Tech Stack
-# Auto-updated by agents after implementations
-# DO NOT manually edit - use tech-stack.md for base knowledge
+# Tech Stack - Learned Knowledge
+# Records: New dependencies added, version upgrades, deprecations
+# Updated by: infrastructure-validator, feature-planner AFTER implementations
+# DO NOT record: existing packages confirmed, routine version checks
 
 version: 1
 last_updated: null
 updated_by: null
 
-frameworks: []
-# Discovered frameworks/libraries not in base docs
-# - id: "fw-001"
-#   name: "MassTransit"
-#   version: "8.0.0"
-#   type: "messaging"
-#   discovered_in: ["order-api", "inventory-api"]
-#   discovered_at: "2024-01-27"
+# New dependencies added (significant only)
+dependencies_added: []
+# Example:
+#   - id: "dep-20240127-001"
+#     date: "2024-01-27"
+#     package: "date-fns"
+#     version: "2.30.0"
+#     added_to: ["asset-mf", "hr-mf"]
+#     purpose: "Date formatting for lease dates"
+#     ticket: "FEAT-123"
 
-version_updates: []
-# Detected version changes
-# - id: "ver-001"
-#   package: "React"
-#   old_version: "17.0.0"
-#   new_version: "18.2.0"
-#   updated_in: ["web-app"]
-#   detected_at: "2024-01-27"
+# Version upgrades performed
+version_upgrades: []
+# Example:
+#   - id: "upgrade-20240127-001"
+#     date: "2024-01-27"
+#     package: "React"
+#     from_version: "17.0.0"
+#     to_version: "18.2.0"
+#     services: ["asset-mf", "hr-mf", "common-mf"]
+#     breaking_changes: "Concurrent rendering, useId hook"
+#     ticket: "TECH-456"
 
-deprecated_packages: []
-# Packages marked for removal
-# - id: "depr-001"
-#   package: "moment.js"
-#   reason: "Replaced with date-fns"
-#   remaining_usages: 3
-#   files: ["src/utils/date.ts"]
-
-new_dependencies: []
-# New dependencies added to services
-# - id: "dep-001"
-#   package: "zod"
-#   version: "3.22.0"
-#   added_to: "web-app"
-#   purpose: "Runtime validation"
-#   added_at: "2024-01-27"
-
-compatibility_issues: []
-# Discovered version conflicts
-# - id: "compat-001"
-#   package: "typescript"
-#   conflict: "user-api@4.9 vs order-api@5.0"
-#   severity: "warning"
-#   discovered_at: "2024-01-27"
+# Deprecations announced
+deprecations: []
+# Example:
+#   - id: "depr-20240127-001"
+#     date: "2024-01-27"
+#     package: "moment.js"
+#     replacement: "date-fns"
+#     deadline: "2024-06-01"
+#     remaining_usages: ["lms-mf", "hr-mf"]
+#     ticket: "TECH-789"
 
 stats:
-  total_frameworks: 0
-  total_version_updates: 0
-  total_deprecated: 0
-  total_new_deps: 0
-  last_scan: null
+  total_dependencies_added: 0
+  total_version_upgrades: 0
+  total_deprecations: 0
+  last_update: null

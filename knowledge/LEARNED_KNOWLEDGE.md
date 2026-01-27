@@ -4,108 +4,182 @@
 
 Each `.md` knowledge file has a companion `.learned.yaml` file:
 - **`.md` files** = Base knowledge (user-defined, manually updated)
-- **`.learned.yaml` files** = Learned knowledge (auto-updated by agents after implementations)
+- **`.learned.yaml` files** = Learned knowledge (significant changes auto-recorded)
 
-## Structure
+## What Gets Recorded
 
+**ONLY record significant architectural knowledge:**
+
+| Record | Don't Record |
+|--------|--------------|
+| New feature added to system | Individual file patterns found |
+| New service communication discovered | Grep match counts |
+| Breaking change made | Minor code style observations |
+| New shared contract/event created | File structure discoveries |
+| Architectural decision made | Routine validations |
+| New integration point | Existing pattern confirmations |
+
+### Good Examples (Record These)
+```yaml
+- "Added lease_end_date property to Tenancy - affects asset-backend, asset-mf, common-backend"
+- "New event TenancyLeaseExpiring added to common-backend for notification triggers"
+- "asset-backend now calls notification-backend via event bus for lease reminders"
+- "Breaking: TenancyDto changed - all consumers need update"
 ```
-knowledge/
-├── validation/
-│   ├── backend-patterns.md           # Base: User-defined patterns
-│   ├── backend-patterns.learned.yaml # Learned: Discovered patterns
-│   ├── frontend-patterns.md
-│   ├── frontend-patterns.learned.yaml
-│   └── ...
-├── architecture/
-│   ├── system-architecture.md
-│   ├── system-architecture.learned.yaml
-│   └── ...
+
+### Bad Examples (Don't Record)
+```yaml
+- "Found Tenancy entity in asset-backend"  # Obvious, not useful
+- "TenancyForm uses React.FC"              # Too granular
+- "Grep pattern matched 5 times"           # Noise
+- "Convention followed correctly"          # Not a change
 ```
 
 ## YAML Schema
 
 ```yaml
-# [filename].learned.yaml
+# [topic].learned.yaml
 version: 1
 last_updated: "2024-01-27T10:30:00Z"
-updated_by: "agent-name"
+updated_by: "feature-planner"
 
-# Learned patterns that extend base knowledge
-patterns:
-  - id: "pat-001"                      # Unique ID for dedup
-    type: "api|database|security|component|..."
-    category: "pattern|anti-pattern|convention"
-    discovered_in: "services/user-api"  # Where it was found
-    discovered_at: "2024-01-27T10:30:00Z"
-    description: "Short description"
-    grep_pattern: "actual regex pattern"  # If applicable
-    example:
-      file: "path/to/example.cs"
-      snippet: |
-        // code snippet showing the pattern
-    confidence: "high|medium|low"       # How certain we are
-    occurrences: 5                      # How many times seen
-    tags: ["auth", "middleware"]
+# Significant feature additions
+features:
+  - id: "feat-20240127-001"
+    date: "2024-01-27"
+    description: "Added lease_end_date to tenancy feature"
+    ticket: "FEAT-123"
+    affected_services:
+      - name: "asset-backend"
+        changes: ["Tenancy entity", "TenancyDto", "migration"]
+      - name: "asset-mf"
+        changes: ["TenancyForm", "TenancyDetails", "types"]
+      - name: "common-backend"
+        changes: ["TenancyEvents"]
+    breaking: false
+    notes: "Optional field, nullable DateTime"
 
-# Learned anti-patterns (things that caused issues)
-anti_patterns:
-  - id: "anti-001"
-    type: "performance|security|maintainability"
-    discovered_in: "services/order-api"
-    discovered_at: "2024-01-27T10:30:00Z"
-    description: "What the problem was"
-    grep_pattern: "pattern to detect it"
-    fix_suggestion: "How to fix it"
-    severity: "error|warning|info"
-    occurrences: 2
+# New service communications discovered
+communications:
+  - id: "comm-20240127-001"
+    date: "2024-01-27"
+    from: "asset-backend"
+    to: "notification-backend"
+    type: "event"
+    event: "TenancyLeaseExpiring"
+    purpose: "Trigger lease expiry notifications"
+    discovered_in: "FEAT-123"
 
-# Learned conventions (naming, structure)
-conventions:
-  - id: "conv-001"
-    type: "naming|structure|config"
-    discovered_in: "services/*"
-    description: "Convention description"
-    examples:
-      - "UserController, OrderController"
-    counter_examples:
-      - "usersCtrl"  # What NOT to do
-    occurrences: 10
+# New shared contracts/events
+contracts:
+  - id: "contract-20240127-001"
+    date: "2024-01-27"
+    name: "TenancyLeaseExpiring"
+    location: "common-backend/src/Contracts/Events/"
+    consumers: ["notification-backend", "asset-mf"]
+    publisher: "asset-backend"
+    added_in: "FEAT-123"
 
-# Learned service boundaries
-boundaries:
-  - id: "bound-001"
-    from_service: "order-api"
-    to_service: "user-api"
-    communication: "http|grpc|event"
-    discovered_at: "2024-01-27T10:30:00Z"
-    contract: "GET /api/users/{id}"
+# Breaking changes log
+breaking_changes:
+  - id: "break-20240127-001"
+    date: "2024-01-27"
+    description: "TenancyDto added required LeaseEndDate field"
+    affected_services: ["asset-mf", "onboard-mf"]
+    migration_notes: "Update all TenancyDto consumers"
+    ticket: "FEAT-123"
 
-# Statistics
+# Architectural decisions made during implementation
+decisions:
+  - id: "adr-20240127-001"
+    date: "2024-01-27"
+    context: "Needed to track lease expiration for tenancies"
+    decision: "Add nullable LeaseEndDate to Tenancy entity"
+    alternatives_considered:
+      - "Separate LeaseTerms table - rejected (overkill for single field)"
+      - "Store in metadata JSON - rejected (need query capability)"
+    consequences: "Simple approach, can extend later if needed"
+    ticket: "FEAT-123"
+
+# Statistics (auto-updated)
 stats:
-  total_patterns: 5
-  total_anti_patterns: 2
-  total_conventions: 3
-  last_scan: "2024-01-27T10:30:00Z"
+  total_features: 1
+  total_communications: 1
+  total_contracts: 1
+  total_breaking_changes: 1
+  last_update: "2024-01-27T10:30:00Z"
 ```
+
+## Recording Triggers
+
+Record learned knowledge ONLY when:
+
+1. **Feature Implementation Completes**
+   - New property/field added to domain
+   - New API endpoint created
+   - New UI component added
+
+2. **Service Communication Changes**
+   - New service-to-service call
+   - New event published/consumed
+   - New API integration
+
+3. **Shared Contract Changes**
+   - New event type in common-backend
+   - New shared DTO
+   - Contract modification
+
+4. **Breaking Changes**
+   - DTO field changes
+   - API signature changes
+   - Event schema changes
+
+5. **Architectural Decisions**
+   - Why a specific approach was chosen
+   - Trade-offs considered
+   - Future implications
 
 ## How Agents Use This
 
-1. **Load base knowledge** (MD file) - User-defined rules
-2. **Load learned knowledge** (YAML file) - Auto-discovered patterns
-3. **Merge and deduplicate** - YAML extends MD, not replaces
-4. **After implementation** - Call knowledge-updater to record learnings
+### When Planning (feature-planner)
+```
+Read: knowledge/architecture/system-architecture.md        # Base
+Read: knowledge/architecture/system-architecture.learned.yaml  # Recent changes
+
+Check recent features to understand:
+- What was recently added to affected services?
+- Any recent breaking changes to consider?
+- Recent communications added?
+```
+
+### After Implementation (feature-planner, commit-manager)
+```
+Task: spawn knowledge-updater
+Prompt: |
+  $KNOWLEDGE_TYPE = system-architecture
+  $LEARNING = {
+    "type": "feature",
+    "description": "Added lease_end_date to tenancy",
+    "ticket": "FEAT-123",
+    "affected_services": [...],
+    "breaking": false
+  }
+```
 
 ## Deduplication Rules
 
-Before adding to YAML, check:
-1. Same `grep_pattern` already exists → Increment `occurrences`
-2. Similar `description` (fuzzy match) → Update existing entry
-3. Truly new → Add with new unique ID
+1. **Same ticket ID** → Update existing entry, don't duplicate
+2. **Same feature description** → Merge into existing
+3. **Same date + same services** → Likely same change, merge
 
-## Who Updates YAML Files
+## Maintenance
 
-The `knowledge-updater` agent is called by:
-- `commit-manager` - After successful commits
-- `service-validator` - After validation discoveries
-- `design-pattern-advisor` - After pattern analysis
-- `feature-planner` - After implementation completes
+### Weekly Review
+- Review recent entries for accuracy
+- Promote important decisions to base MD files
+- Archive old entries (>6 months) if no longer relevant
+
+### Cleanup Criteria
+- Remove entries older than 1 year
+- Remove entries superseded by newer changes
+- Consolidate related entries

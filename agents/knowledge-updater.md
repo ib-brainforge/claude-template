@@ -1,179 +1,159 @@
 ---
 name: knowledge-updater
 description: |
-  Updates learned knowledge YAML files after implementations.
-  Called by other agents to record discoveries, patterns, and learnings.
-  Handles deduplication to prevent knowledge bloat.
-tools: [Read, Write, Glob]
+  Records significant architectural changes to learned knowledge YAML files.
+  Called ONLY after meaningful implementations - features, communications, breaking changes.
+  NOT for routine validation findings or pattern matches.
+tools: [Read, Write]
 model: haiku
 ---
 
 # Purpose
 
-Records learnings from implementations into `.learned.yaml` files. This enables
-the system to improve itself over time by capturing discovered patterns,
-anti-patterns, conventions, and architectural insights.
+Records **significant architectural knowledge** after implementations. This captures
+what changed in the system, not what was observed during validation.
 
-**IMPORTANT**: This agent only updates YAML files. It never modifies MD files
-(those are user-maintained base knowledge).
+**IMPORTANT**: Only record meaningful changes that help future planning:
+- ✅ New feature added across services
+- ✅ New service communication established
+- ✅ Breaking change made
+- ✅ Architectural decision made
+- ❌ Pattern found during grep (don't record)
+- ❌ Validation passed (don't record)
+- ❌ File structure observed (don't record)
 
 # Variables
 
 - `$KNOWLEDGE_TYPE (string)`: Which knowledge area to update
-  - `backend-patterns` | `frontend-patterns` | `security-standards`
-  - `system-architecture` | `service-boundaries` | `design-patterns` | `tech-stack`
-  - `core-packages` | `package-config` | `commit-conventions`
-- `$LEARNING (json)`: The learning to record (structure depends on type)
-- `$SOURCE_AGENT (string)`: Which agent is reporting the learning
-- `$SOURCE_FILE (string, optional)`: File where discovery was made
+  - `system-architecture` - Features, services, ADRs
+  - `service-boundaries` - Communications, contracts
+  - `tech-stack` - New dependencies, version changes
+- `$LEARNING (json)`: The change to record
+- `$SOURCE_AGENT (string)`: Which agent completed the implementation
+- `$TICKET (string, optional)`: Ticket/issue ID for traceability
 
 # Knowledge File Mapping
 
 ```
-backend-patterns    → knowledge/validation/backend-patterns.learned.yaml
-frontend-patterns   → knowledge/validation/frontend-patterns.learned.yaml
-security-standards  → knowledge/validation/security-standards.learned.yaml
 system-architecture → knowledge/architecture/system-architecture.learned.yaml
 service-boundaries  → knowledge/architecture/service-boundaries.learned.yaml
-design-patterns     → knowledge/architecture/design-patterns.learned.yaml
 tech-stack          → knowledge/architecture/tech-stack.learned.yaml
-core-packages       → knowledge/packages/core-packages.learned.yaml
-package-config      → knowledge/packages/package-config.learned.yaml
-commit-conventions  → knowledge/commit-conventions.learned.yaml
 ```
 
 # Instructions
 
-## 1. Load Existing YAML
+## 1. Validate Learning is Significant
+
+**SKIP recording if:**
+- Learning is just "found X pattern" → Not a change
+- Learning is "validation passed" → Not useful
+- Learning has no affected services → Too vague
+- Same ticket already recorded today → Duplicate
+
+**PROCEED if:**
+- New feature implemented with affected services list
+- New communication between services
+- Breaking change with migration notes
+- Architectural decision with rationale
+
+## 2. Load Existing YAML
 
 ```
-Read: knowledge/[path]/$KNOWLEDGE_TYPE.learned.yaml
+Read: knowledge/[category]/$KNOWLEDGE_TYPE.learned.yaml
 ```
 
-Parse the YAML content into memory.
+## 3. Check for Duplicates
 
-## 2. Check for Duplicates
+Before adding, check if entry exists:
+- Same `ticket` ID → Update existing entry
+- Same `description` + same `date` → Merge
+- Same `affected_services` + same `date` → Likely same change
 
-Before adding new learning, check if similar entry exists:
+## 4. Add Entry
 
-### For Patterns/Anti-Patterns
-- Same `grep_pattern` → Update `occurrences` count, don't add new
-- Same `description` (>80% similar) → Update existing entry
-- Same `discovered_in` + same `type` → Likely duplicate
+Generate ID: `[type]-[YYYYMMDD]-[seq]`
 
-### For Conventions
-- Same `description` → Add to `examples` list
-- Same `type` + similar examples → Update existing
-
-### For Boundaries/Communications
-- Same `from_service` + `to_service` + `method` → Update, don't duplicate
-
-## 3. Generate Unique ID
-
-If not a duplicate, generate new ID:
+### For Features
+```yaml
+features:
+  - id: "feat-20240127-001"
+    date: "2024-01-27"
+    description: "Clear description of what was added"
+    ticket: "FEAT-123"
+    affected_services:
+      - name: "service-name"
+        changes: ["what changed in this service"]
+    breaking: false
+    notes: "Any important context"
 ```
-[type-prefix]-[timestamp]-[random]
-Example: pat-20240127-a1b2
+
+### For Communications
+```yaml
+communications:
+  - id: "comm-20240127-001"
+    date: "2024-01-27"
+    from: "source-service"
+    to: "target-service"
+    type: "http|event|grpc"
+    contract: "EventName or /api/endpoint"
+    purpose: "Why this communication exists"
+    discovered_in: "FEAT-123"
 ```
 
-ID prefixes:
-- `pat-` for patterns
-- `anti-` for anti-patterns
-- `conv-` for conventions
-- `comm-` for communications
-- `viol-` for violations
-- `svc-` for services
+### For Breaking Changes
+```yaml
+breaking_changes:
+  - id: "break-20240127-001"
+    date: "2024-01-27"
+    description: "What broke"
+    affected_services: ["list", "of", "consumers"]
+    migration_notes: "How to handle"
+    ticket: "FEAT-123"
+```
 
-## 4. Add Learning Entry
-
-Add to appropriate array in YAML:
-- Set `discovered_at` to current timestamp
-- Set `discovered_in` to $SOURCE_FILE if provided
-- Set `confidence` based on evidence strength
-- Set `occurrences` to 1 for new entries
+### For Decisions
+```yaml
+decisions:
+  - id: "adr-20240127-001"
+    date: "2024-01-27"
+    context: "What problem were we solving"
+    decision: "What we decided"
+    alternatives_considered:
+      - "Option A - why rejected"
+      - "Option B - why rejected"
+    consequences: "What this means for future"
+    ticket: "FEAT-123"
+```
 
 ## 5. Update Statistics
 
-Increment the relevant counter in `stats` section:
 ```yaml
 stats:
-  total_patterns: [increment]
-  last_scan: [current timestamp]
+  total_features: [increment if feature added]
+  total_communications: [increment if communication added]
+  total_breaking_changes: [increment if breaking change added]
+  last_update: "[current timestamp]"
 ```
 
 ## 6. Write Updated YAML
 
 ```
-Write: knowledge/[path]/$KNOWLEDGE_TYPE.learned.yaml
+Write: knowledge/[category]/$KNOWLEDGE_TYPE.learned.yaml
 ```
 
-Update `last_updated` and `updated_by` in header.
+# Input Format
 
-# Learning Input Formats
-
-## Pattern Learning
 ```json
 {
-  "type": "api|database|security|component",
-  "category": "pattern|anti-pattern",
-  "description": "What was discovered",
-  "grep_pattern": "regex pattern if applicable",
-  "example": {
-    "file": "path/to/file",
-    "snippet": "code example"
-  },
-  "confidence": "high|medium|low"
+  "type": "feature|communication|breaking_change|decision",
+  "description": "Clear description",
+  "ticket": "FEAT-123",
+  "affected_services": [
+    {"name": "service", "changes": ["what changed"]}
+  ],
+  "breaking": false,
+  "notes": "Additional context"
 }
-```
-
-## Convention Learning
-```json
-{
-  "type": "naming|structure|config",
-  "description": "Convention description",
-  "examples": ["Example1", "Example2"],
-  "counter_examples": ["BadExample"]
-}
-```
-
-## Boundary Learning
-```json
-{
-  "from_service": "service-a",
-  "to_service": "service-b",
-  "communication": "http|grpc|event",
-  "endpoint": "/api/endpoint"
-}
-```
-
-## Architecture Learning
-```json
-{
-  "type": "service|data_flow|dependency|adr",
-  "name": "component name",
-  "details": { ... }
-}
-```
-
-# Deduplication Algorithm
-
-```
-function shouldAdd(newLearning, existingEntries):
-  for entry in existingEntries:
-    if exactMatch(entry.grep_pattern, newLearning.grep_pattern):
-      entry.occurrences += 1
-      entry.last_seen = now()
-      return UPDATE_EXISTING
-
-    if similarityScore(entry.description, newLearning.description) > 0.8:
-      mergeEntries(entry, newLearning)
-      return UPDATE_EXISTING
-
-    if entry.discovered_in == newLearning.discovered_in
-       and entry.type == newLearning.type:
-      return SKIP_DUPLICATE
-
-  return ADD_NEW
 ```
 
 # Report Format
@@ -181,20 +161,48 @@ function shouldAdd(newLearning, existingEntries):
 ```json
 {
   "agent": "knowledge-updater",
-  "status": "PASS|WARN|FAIL",
-  "action": "added|updated|skipped",
-  "knowledge_type": "$KNOWLEDGE_TYPE",
-  "entry_id": "pat-20240127-a1b2",
-  "file_updated": "knowledge/validation/backend-patterns.learned.yaml",
-  "reason": "New pattern discovered" | "Updated occurrences" | "Duplicate skipped"
+  "status": "RECORDED|SKIPPED|MERGED",
+  "reason": "New feature recorded" | "Duplicate of existing" | "Not significant",
+  "entry_id": "feat-20240127-001",
+  "file_updated": "knowledge/architecture/system-architecture.learned.yaml"
 }
 ```
 
-# Error Handling
+# Examples
 
-| Condition | Action |
-|-----------|--------|
-| YAML parse error | Report error, don't modify |
-| Invalid learning format | Report error, skip entry |
-| File not found | Create new YAML file with template |
-| Duplicate detected | Update existing, report as "updated" |
+## Good Input (Record This)
+```json
+{
+  "type": "feature",
+  "description": "Added lease_end_date to tenancy",
+  "ticket": "FEAT-123",
+  "affected_services": [
+    {"name": "asset-backend", "changes": ["Tenancy entity", "TenancyDto", "migration"]},
+    {"name": "asset-mf", "changes": ["TenancyForm", "types.ts"]},
+    {"name": "common-backend", "changes": ["TenancyEvents"]}
+  ],
+  "breaking": false,
+  "notes": "Optional nullable DateTime field"
+}
+```
+→ **RECORD**: Clear feature with multiple services affected
+
+## Bad Input (Skip This)
+```json
+{
+  "type": "pattern",
+  "description": "Found Tenancy entity uses BaseEntity",
+  "grep_pattern": "class Tenancy : BaseEntity"
+}
+```
+→ **SKIP**: This is an observation, not a change. Not useful for future planning.
+
+## Bad Input (Skip This)
+```json
+{
+  "type": "validation",
+  "description": "Backend patterns validation passed",
+  "patterns_checked": 5
+}
+```
+→ **SKIP**: Validation results aren't knowledge. Only record if something changed.
