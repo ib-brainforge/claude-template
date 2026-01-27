@@ -2,7 +2,7 @@
 
 <!--
 This is your main CLAUDE.md file. Keep it MINIMAL (<50 lines of actual instructions).
-Heavy documentation goes in skills/ and references/ - loaded by subagents as needed.
+Heavy documentation goes in knowledge/, skills/, and agents/.
 -->
 
 ## Skills (Entry Points)
@@ -16,45 +16,44 @@ Heavy documentation goes in skills/ and references/ - loaded by subagents as nee
 | `package-release` | `/update-packages` | Update NPM/NuGet packages |
 | `docs-sync` | `/sync-docs` | Sync to Confluence |
 
+## Folder Structure
+
+```
+claude-code-setup/
+├── CLAUDE.md              # This file (entry point)
+├── knowledge/             # Domain-specific content (UPDATE FOR YOUR PROJECT)
+│   ├── architecture.md    # System structure, ADRs
+│   ├── design-patterns.md # Required patterns
+│   ├── anti-patterns.md   # What to avoid
+│   ├── core-packages.md   # Shared library APIs
+│   ├── tech-stack.md      # Framework versions
+│   └── ...
+├── skills/                # Entry points with workflows
+│   └── {skill}/
+│       ├── SKILL.md       # Workflow definition
+│       ├── cookbook/      # How-to recipes
+│       └── tools/         # Python scripts
+└── agents/                # Subagent definitions
+```
+
 ## Agents
 
-All heavy work is delegated to subagents to keep main context clean:
+All heavy work is delegated to subagents:
 
-**Validation**: `validation-orchestrator` → `master-architect`, `service-validator`, `frontend-pattern-validator`, `backend-pattern-validator`, `infrastructure-validator`, `core-validator`
-
-**Design Patterns**: `design-pattern-advisor` (validate/suggest/review modes)
-
-**Planning**: `feature-planner` → `design-pattern-advisor` → validators → `plan-validator`
-
-**CI/CD**: `commit-manager`, `release-orchestrator` → `npm-package-manager`, `nuget-package-manager`
-
-**Local LLM**: `local-llm-worker` (Ollama), `lmstudio-llm-worker` (LM Studio)
-
-**Docs**: `docs-sync-agent`
-
-## Repository Structure
-
-<!-- TODO: Document your actual repo structure -->
-```
-$REPOS_ROOT/
-├── services/           # ~40 microservices (frontend/backend)
-├── core/
-│   ├── react/         # NPM packages (@your-org/*)
-│   └── dotnet/        # NuGet packages (YourOrg.*)
-├── infrastructure/    # IaC and deployment
-└── docs/              # Central documentation
-```
-
-## Core Packages
-
-<!-- TODO: Update in skills/package-release/references/package-config.md -->
-- NPM: `@your-org/core-react`, `@your-org/ui-components`
-- NuGet: `YourOrg.Core`, `YourOrg.Data`
+- **Validation**: `validation-orchestrator` → `master-architect`, `*-validator`
+- **Design Patterns**: `design-pattern-advisor` (validate/suggest/review modes)
+- **Planning**: `feature-planner` → validators → `plan-validator`
+- **CI/CD**: `commit-manager`, `release-orchestrator` → package managers
+- **Local LLM**: `local-llm-worker`, `lmstudio-llm-worker`
 
 ## Workflow Pattern
 
 ```
-User → Skill (SKILL.md + scripts) → Agents (subagents) → JSON Results
+User → Skill (SKILL.md + cookbook + tools) → Agents → knowledge/ → JSON Results
 ```
 
-All scripts are inside skills/ folders and return JSON for deterministic processing.
+## Reusing This Setup
+
+1. Copy this folder to your project
+2. Update `knowledge/` files with your domain specifics
+3. Skills and agents reference `knowledge/` automatically

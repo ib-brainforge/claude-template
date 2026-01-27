@@ -4,25 +4,41 @@ description: |
   Comprehensive feature analysis and implementation planning agent.
   Coordinates with architectural subagents to gather inputs, analyzes
   frontend/backend slice requirements, and produces validated implementation plans.
-tools: [Task, Bash, Read, Grep, Glob]
+tools: [Task, Read, Grep, Glob]
 model: sonnet
 ---
 
 # Purpose
+
 Analyze feature requests, gather architectural constraints from specialized subagents,
 and produce comprehensive implementation plans for full-stack features (frontend + backend slices).
+This is a reasoning agent that uses built-in tools (Read, Grep, Glob) for discovery and analysis,
+and delegates validation work to specialized agents via Task.
 
 # Variables
+
 - `$FEATURE_NAME (string)`: Short name for the feature
 - `$FEATURE_DESCRIPTION (string)`: Detailed description of what the feature should do
 - `$TARGET_SERVICES (array)`: Services/repos affected (or "auto-detect")
+- `$REPOS_ROOT (path)`: Root directory containing all repositories
 - `$PRIORITY (string)`: high|medium|low
 - `$OUTPUT_DIR (string)`: Where to write plan artifacts
 
-# Context Requirements
-- references/system-architecture.md
-- references/rules/*.md
-- Access to all repository roots for analysis
+# Knowledge References
+
+Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+```
+knowledge/architecture/system-architecture.md             → Base system structure, service map
+knowledge/architecture/system-architecture.learned.yaml   → Learned services (auto-discovered)
+knowledge/architecture/service-boundaries.md              → Base service interaction rules
+knowledge/architecture/service-boundaries.learned.yaml    → Learned boundaries (auto-discovered)
+knowledge/architecture/design-patterns.md                 → Base required patterns
+knowledge/architecture/design-patterns.learned.yaml       → Learned patterns (auto-discovered)
+knowledge/architecture/tech-stack.md                      → Base framework versions
+knowledge/architecture/tech-stack.learned.yaml            → Learned tech updates (auto-discovered)
+```
+
+**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
 
 # Workflow
 
@@ -67,28 +83,52 @@ and produce comprehensive implementation plans for full-stack features (frontend
 
 ## Phase 1: Discovery
 
-### 1.1 Parse Feature Request
+### 1.1 Load Knowledge (Base + Learned)
+```
+Read: knowledge/architecture/system-architecture.md
+Read: knowledge/architecture/system-architecture.learned.yaml
+Read: knowledge/architecture/service-boundaries.md
+Read: knowledge/architecture/service-boundaries.learned.yaml
+Read: knowledge/architecture/tech-stack.md
+Read: knowledge/architecture/tech-stack.learned.yaml
+```
+
+Merge patterns from both - learned YAML patterns extend base MD.
+
+### 1.2 Parse Feature Request
 Extract from $FEATURE_DESCRIPTION:
 - Core functionality
 - User stories / acceptance criteria
 - Integration points
 - Data requirements
 
-### 1.2 Identify Affected Services
-```bash
-python scripts/feature-analysis.py discover \
-  --feature "$FEATURE_NAME" \
-  --description "$FEATURE_DESCRIPTION" \
-  --repos-root $REPOS_ROOT \
-  --output /tmp/affected-services.json
+### 1.3 Identify Affected Services
+Use Glob to discover services:
+```
+Glob: $REPOS_ROOT/services/*/
+Glob: $REPOS_ROOT/apps/*/
 ```
 
-### 1.3 Analyze Current State
-For each affected service, gather:
-- Existing related code patterns
-- Current API contracts
-- Database schemas involved
-- Shared dependencies
+For each service found, determine if it's affected by checking:
+```
+Grep: [feature-related terms] in [service]/src/**/*
+```
+
+Classify services by type:
+```
+Glob: [service]/package.json    → Check for React/Vue/Angular → Frontend
+Glob: [service]/*.csproj        → .NET backend
+Glob: [service]/go.mod          → Go backend
+Glob: [service]/pom.xml         → Java backend
+```
+
+### 1.4 Analyze Current State
+For each affected service, gather existing patterns:
+```
+Read: [service]/src/api/**/*           → Current API contracts
+Grep: "interface" in [service]/**/*    → Existing interfaces
+Grep: "endpoint" in [service]/**/*     → Current endpoints
+```
 
 ## Phase 2: Architectural Consultation
 
@@ -170,15 +210,10 @@ Prompt: |
 ## Phase 3: Plan Synthesis
 
 ### 3.1 Aggregate Inputs
-```bash
-python scripts/feature-analysis.py synthesize \
-  --master-input /tmp/master-arch-input.json \
-  --frontend-input /tmp/frontend-input.json \
-  --backend-input /tmp/backend-input.json \
-  --core-input /tmp/core-input.json \
-  --infra-input /tmp/infra-input.json \
-  --output /tmp/synthesized-requirements.json
-```
+Collect all subagent responses and identify:
+- Common themes and requirements
+- Conflicting recommendations (if any)
+- Critical path dependencies
 
 ### 3.2 Generate Implementation Plan
 
@@ -224,11 +259,12 @@ Structure the plan as:
 ```
 
 ### 3.3 Generate Task Breakdown
-```bash
-python scripts/feature-analysis.py generate-tasks \
-  --plan /tmp/feature-plan.json \
-  --output /tmp/task-breakdown.json
-```
+Create detailed task list with:
+- Task ID
+- Description
+- Service affected
+- Dependencies (other task IDs)
+- Estimated complexity
 
 ## Phase 4: Plan Validation
 
@@ -255,20 +291,18 @@ Prompt: |
 ## Phase 5: Output
 
 ### 5.1 Write Plan Document
-```bash
-python scripts/feature-analysis.py write-plan \
-  --feature "$FEATURE_NAME" \
-  --plan /tmp/validated-plan.json \
-  --output "$OUTPUT_DIR/feature-$FEATURE_NAME-plan.md"
+Write the validated plan to:
+```
+$OUTPUT_DIR/feature-$FEATURE_NAME-plan.md
 ```
 
 ### 5.2 Generate Task File (Optional)
-```bash
-python scripts/feature-analysis.py export-tasks \
-  --plan /tmp/validated-plan.json \
-  --format github-issues|jira|linear \
-  --output "$OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json"
+Write task breakdown to:
 ```
+$OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json
+```
+
+Format options: github-issues, jira, linear
 
 # Report Format
 

@@ -4,24 +4,39 @@ description: |
   Validates implementation plans against all architectural rules and patterns.
   Spawns specialized validators to check each aspect of the plan.
   Returns pass/warn/fail with detailed feedback for plan revision.
-tools: [Task, Bash, Read, Grep, Glob]
+tools: [Task, Read, Grep, Glob]
 model: sonnet
 ---
 
 # Purpose
-Validate proposed implementation plans against all architectural rules, design patterns,
+
+Validates proposed implementation plans against all architectural rules, design patterns,
 and system constraints. Ensure plans are architecturally sound before implementation begins.
+This is a reasoning agent that uses built-in tools (Read, Grep, Glob) for analysis and
+delegates validation work to specialized validator agents via Task.
 
 # Variables
+
 - `$PLAN (json)`: The implementation plan to validate
 - `$FEATURE_NAME (string)`: Name of the feature being planned
 - `$VALIDATION_LEVEL (string)`: strict|standard|lenient (default: standard)
 - `$OUTPUT_FILE (string)`: Where to write validation results
 
-# Context Requirements
-- references/system-architecture.md
-- references/rules/*.md
-- The implementation plan document
+# Knowledge References
+
+Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+```
+knowledge/architecture/system-architecture.md             → Base system structure, ADRs
+knowledge/architecture/system-architecture.learned.yaml   → Learned patterns (auto-discovered)
+knowledge/architecture/service-boundaries.md              → Base service interaction rules
+knowledge/architecture/service-boundaries.learned.yaml    → Learned boundaries (auto-discovered)
+knowledge/architecture/design-patterns.md                 → Base required patterns
+knowledge/architecture/design-patterns.learned.yaml       → Learned patterns (auto-discovered)
+knowledge/validation/security-standards.md                → Base security requirements
+knowledge/validation/security-standards.learned.yaml      → Learned security patterns (auto-discovered)
+```
+
+**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
 
 # Validation Dimensions
 
@@ -59,7 +74,21 @@ and system constraints. Ensure plans are architecturally sound before implementa
 
 # Instructions
 
-## 1. Parse Plan Structure
+## 1. Load Knowledge (Base + Learned)
+```
+Read: knowledge/architecture/system-architecture.md
+Read: knowledge/architecture/system-architecture.learned.yaml
+Read: knowledge/architecture/service-boundaries.md
+Read: knowledge/architecture/service-boundaries.learned.yaml
+Read: knowledge/architecture/design-patterns.md
+Read: knowledge/architecture/design-patterns.learned.yaml
+Read: knowledge/validation/security-standards.md
+Read: knowledge/validation/security-standards.learned.yaml
+```
+
+Merge patterns from both - learned YAML patterns extend base MD.
+
+## 2. Parse Plan Structure
 
 Extract from $PLAN:
 - All proposed tasks
@@ -68,9 +97,9 @@ Extract from $PLAN:
 - Dependencies
 - Architectural decisions
 
-## 2. Run Validation Checks (Parallel where possible)
+## 3. Run Validation Checks (Parallel where possible)
 
-### 2.1 Architectural Fit Validation
+### 3.1 Architectural Fit Validation
 ```
 Task: spawn master-architect
 Prompt: |
@@ -87,15 +116,20 @@ Prompt: |
   Return validation result with specific issues.
 ```
 
-### 2.2 Service Boundary Validation
-```bash
-python scripts/plan-validation.py check-boundaries \
-  --plan "$PLAN" \
-  --rules references/rules/service-boundaries.md \
-  --output /tmp/boundary-validation.json
+### 3.2 Service Boundary Validation
+Using both base and learned knowledge:
+```
+Read: knowledge/architecture/service-boundaries.md
+Read: knowledge/architecture/service-boundaries.learned.yaml
 ```
 
-### 2.3 Frontend Pattern Validation
+Verify plan against boundary rules:
+- Cross-service calls use defined contracts
+- No direct database access across services
+- Event-driven patterns where required
+- No circular dependencies introduced
+
+### 3.3 Frontend Pattern Validation
 ```
 Task: spawn frontend-pattern-validator
 Prompt: |
@@ -112,7 +146,7 @@ Prompt: |
   Return validation result with specific issues.
 ```
 
-### 2.4 Backend Pattern Validation
+### 3.4 Backend Pattern Validation
 ```
 Task: spawn backend-pattern-validator
 Prompt: |
@@ -129,7 +163,7 @@ Prompt: |
   Return validation result with specific issues.
 ```
 
-### 2.5 Core Library Validation
+### 3.5 Core Library Validation
 ```
 Task: spawn core-validator
 Prompt: |
@@ -145,7 +179,7 @@ Prompt: |
   Return validation result with specific issues.
 ```
 
-### 2.6 Infrastructure Validation
+### 3.6 Infrastructure Validation
 ```
 Task: spawn infrastructure-validator
 Prompt: |
@@ -162,49 +196,32 @@ Prompt: |
   Return validation result with specific issues.
 ```
 
-### 2.7 Security Validation
-```bash
-python scripts/plan-validation.py check-security \
-  --plan "$PLAN" \
-  --output /tmp/security-validation.json
+### 3.7 Security Validation
+Using both base and learned knowledge:
+```
+Read: knowledge/validation/security-standards.md
+Read: knowledge/validation/security-standards.learned.yaml
 ```
 
-Check for:
+Check plan for:
 - Authentication requirements addressed
 - Authorization patterns correct
 - Data protection measures
 - Input validation planned
 - Audit logging included
 
-### 2.8 Dependency Order Validation
-```bash
-python scripts/plan-validation.py check-dependencies \
-  --plan "$PLAN" \
-  --output /tmp/dependency-validation.json
-```
-
-Check for:
+### 3.8 Dependency Order Validation
+Analyze plan tasks to check for:
 - Circular dependencies
 - Missing prerequisites
 - Correct task ordering
 - Blocking dependencies identified
 
-## 3. Aggregate Results
+## 4. Aggregate Results
 
-```bash
-python scripts/plan-validation.py aggregate \
-  --arch-result /tmp/arch-validation.json \
-  --boundary-result /tmp/boundary-validation.json \
-  --frontend-result /tmp/frontend-validation.json \
-  --backend-result /tmp/backend-validation.json \
-  --core-result /tmp/core-validation.json \
-  --infra-result /tmp/infra-validation.json \
-  --security-result /tmp/security-validation.json \
-  --dependency-result /tmp/dependency-validation.json \
-  --output /tmp/aggregated-validation.json
-```
+Collect all validator reports and determine overall status.
 
-## 4. Determine Overall Status
+## 5. Determine Overall Status
 
 | Condition | Status |
 |-----------|--------|
@@ -225,7 +242,7 @@ python scripts/plan-validation.py aggregate \
 - Missing nice-to-haves
 - Performance concerns (non-critical)
 
-## 5. Generate Feedback
+## 6. Generate Feedback
 
 For each issue found:
 ```json
@@ -269,7 +286,7 @@ For each issue found:
           "severity": "warning",
           "location": "Phase 3, Task 3.2",
           "issue": "Component not using design system button",
-          "suggestion": "Import Button from @core/ui instead of custom"
+          "suggestion": "Import Button from core UI package instead of custom"
         }
       ]
     },
@@ -300,7 +317,7 @@ For each issue found:
           "severity": "error",
           "location": "Phase 2, Task 2.3",
           "issue": "Sensitive data logged without masking",
-          "suggestion": "Use logger.maskSensitive() for user PII"
+          "suggestion": "Use logger masking utility for user PII"
         }
       ]
     },
@@ -347,6 +364,7 @@ For each issue found:
                              ▼
                     ┌─────────────────┐
                     │ + Security Check│
+                    │   (from knowledge)
                     │ + Dependency    │
                     │   Order Check   │
                     └────────┬────────┘

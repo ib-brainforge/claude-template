@@ -1,8 +1,8 @@
 ---
 name: validation
 description: |
-  Architectural validation across microservices repositories.
-  Validates service structure, patterns, dependencies, and compliance.
+  Architectural validation across repositories.
+  Domain-agnostic - references knowledge/ for project-specific rules.
 triggers:
   - /validate
   - validate architecture
@@ -12,144 +12,113 @@ triggers:
 
 # Purpose
 
-Run comprehensive architectural validation across all microservices. Spawns specialized
-validator subagents to check different aspects of the system.
+Run comprehensive architectural validation across all services. Domain-agnostic skill that references `knowledge/` for project-specific rules.
 
 # Usage
 
-```
+```bash
 /validate                           # Validate all services
 /validate --scope frontend          # Frontend services only
 /validate --scope backend           # Backend services only
 /validate --service user-service    # Single service
-/validate --quick                   # Fast check (structure only)
+/validate --quick                   # Structure only (fast)
 ```
 
 # Variables
 
-- `$SCOPE (string)`: all|frontend|backend|infrastructure (default: all)
-- `$SERVICE (string, optional)`: Specific service to validate
-- `$QUICK (bool)`: Skip deep analysis (default: false)
-- `$OUTPUT_DIR (string)`: Where to write reports (default: ./validation-reports)
+- `$SCOPE (string)`: all|frontend|backend|infrastructure
+- `$SERVICE (string, optional)`: Specific service
+- `$QUICK (bool)`: Skip deep analysis
+- `$OUTPUT_DIR (string)`: Report output location
 
-# Context Requirements
+# Knowledge References
 
-- references/system-architecture.md
-- references/rules/*.md
-- Access to repository roots
+This skill loads domain knowledge from:
+
+```
+knowledge/architecture/system-architecture.md        → System structure
+knowledge/architecture/service-boundaries.md  → Interaction rules
+knowledge/architecture/design-patterns.md     → Required patterns
+knowledge/validation/backend-patterns.md       → What to avoid
+knowledge/architecture/tech-stack.md          → Framework versions
+```
 
 # Workflow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         VALIDATION WORKFLOW                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. DISCOVERY                                                                │
-│     └──► scripts/discover-services.py                                        │
-│          Find all services, classify by type                                 │
-│                                                                              │
-│  2. STRUCTURE VALIDATION                                                     │
-│     └──► scripts/validate-structure.py                                       │
-│          Check directory layout, required files                              │
-│                                                                              │
-│  3. PATTERN VALIDATION (Parallel Subagents)                                  │
-│     ├──► master-architect ──► System-wide rules                              │
-│     ├──► frontend-pattern-validator ──► UI patterns                          │
-│     ├──► backend-pattern-validator ──► API patterns                          │
-│     ├──► infrastructure-validator ──► IaC patterns                           │
-│     └──► core-validator ──► Shared library usage                             │
-│                                                                              │
-│  4. DEPENDENCY CHECK                                                         │
-│     └──► scripts/check-dependencies.py                                       │
-│          Circular deps, version conflicts                                    │
-│                                                                              │
-│  5. AGGREGATE                                                                │
-│     └──► scripts/aggregate-results.py                                        │
-│          Combine all results into final report                               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    VALIDATION WORKFLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│  1. DISCOVER       → tools/discover-services.py                  │
+│  2. STRUCTURE      → tools/validate-structure.py                 │
+│  3. PATTERNS       → Spawn: design-pattern-advisor               │
+│  4. BOUNDARIES     → Spawn: master-architect                     │
+│  5. DEPENDENCIES   → tools/check-dependencies.py                 │
+│  6. AGGREGATE      → tools/aggregate-results.py                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 # Instructions
 
-## 1. Discover Services
+## Step 1: Discover Services
 
 ```bash
-python skills/validation/scripts/discover-services.py \
+python skills/validation/tools/discover-services.py \
   --root $REPOS_ROOT \
   --output /tmp/discovered-services.json
 ```
 
-## 2. Validate Structure
+See `cookbook/discover-services.md` for details.
+
+## Step 2: Validate Structure
 
 ```bash
-python skills/validation/scripts/validate-structure.py \
+python skills/validation/tools/validate-structure.py \
   --services /tmp/discovered-services.json \
-  --rules references/rules/ \
   --output /tmp/structure-validation.json
 ```
 
-## 3. Spawn Pattern Validators (Parallel)
+See `cookbook/validate-structure.md` for expected structure rules.
 
-Based on $SCOPE, spawn appropriate validators:
+## Step 3: Pattern Validation (Parallel)
 
-### For Frontend Services
 ```
-Task: spawn frontend-pattern-validator
+Task: spawn design-pattern-advisor
 Prompt: |
-  Validate frontend patterns for services: [frontend services list]
-  Rules: references/rules/frontend-patterns.md
-  Return JSON report.
+  Mode: validate
+  Target: [discovered services]
+  Load: knowledge/architecture/design-patterns.md, knowledge/validation/backend-patterns.md
+  Return: JSON validation report
 ```
 
-### For Backend Services
-```
-Task: spawn backend-pattern-validator
-Prompt: |
-  Validate backend patterns for services: [backend services list]
-  Rules: references/rules/backend-patterns.md
-  Return JSON report.
-```
+## Step 4: Boundary Validation
 
-### For Infrastructure
-```
-Task: spawn infrastructure-validator
-Prompt: |
-  Validate infrastructure configs.
-  Rules: references/rules/infrastructure.md
-  Return JSON report.
-```
-
-### System-Wide
 ```
 Task: spawn master-architect
 Prompt: |
-  Validate system-wide architectural compliance.
-  Check service boundaries, communication patterns.
-  Return JSON report.
+  Validate service boundaries and architecture.
+  Services: [from discovery]
+  Load: knowledge/architecture/service-boundaries.md, knowledge/architecture/system-architecture.md
+  Return: JSON validation report
 ```
 
-## 4. Check Dependencies
+## Step 5: Check Dependencies
 
 ```bash
-python skills/validation/scripts/check-dependencies.py \
+python skills/validation/tools/check-dependencies.py \
   --services /tmp/discovered-services.json \
   --output /tmp/dependency-check.json
 ```
 
-## 5. Aggregate Results
+## Step 6: Aggregate Results
 
 ```bash
-python skills/validation/scripts/aggregate-results.py \
-  --structure /tmp/structure-validation.json \
-  --frontend /tmp/frontend-validation.json \
-  --backend /tmp/backend-validation.json \
-  --infra /tmp/infra-validation.json \
-  --master /tmp/master-validation.json \
-  --dependencies /tmp/dependency-check.json \
+python skills/validation/tools/aggregate-results.py \
+  --inputs /tmp/*-validation.json \
   --output "$OUTPUT_DIR/validation-report.json"
 ```
+
+See `cookbook/aggregate-results.md` for aggregation logic.
 
 # Report Format
 
@@ -157,48 +126,42 @@ python skills/validation/scripts/aggregate-results.py \
 {
   "skill": "validation",
   "status": "PASS|WARN|FAIL",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "scope": "all",
   "summary": {
     "services_checked": 40,
     "passed": 38,
     "warnings": 1,
     "failures": 1
   },
-  "by_category": {
-    "structure": { "status": "PASS", "issues": [] },
-    "frontend_patterns": { "status": "PASS", "issues": [] },
-    "backend_patterns": { "status": "WARN", "issues": [...] },
-    "infrastructure": { "status": "PASS", "issues": [] },
+  "categories": {
+    "structure": { "status": "PASS" },
+    "patterns": { "status": "WARN", "issues": [...] },
+    "boundaries": { "status": "PASS" },
     "dependencies": { "status": "FAIL", "issues": [...] }
   },
-  "critical_issues": [
-    {
-      "service": "order-service",
-      "category": "dependencies",
-      "issue": "Circular dependency with payment-service",
-      "severity": "error"
-    }
-  ],
-  "recommendations": [
-    "Break circular dependency via event-driven pattern",
-    "Update deprecated API calls in user-service"
-  ]
+  "critical_issues": [...],
+  "recommendations": [...]
 }
 ```
 
-# Scripts Reference
+# Cookbook
 
-| Script | Purpose |
+| Recipe | Purpose |
 |--------|---------|
-| `discover-services.py` | Find and classify all services |
-| `validate-structure.py` | Check directory structure compliance |
+| `discover-services.md` | How service discovery works |
+| `validate-structure.md` | Structure validation rules |
+| `aggregate-results.md` | Result aggregation logic |
+
+# Tools
+
+| Tool | Purpose |
+|------|---------|
+| `discover-services.py` | Find and classify services |
+| `validate-structure.py` | Check directory layout |
 | `check-dependencies.py` | Analyze dependency graph |
 | `aggregate-results.py` | Combine validation results |
 
-# Integration with Other Skills
+# Related Skills
 
-After validation, you might want to:
-- `/plan-feature` - Plan fixes for issues found
-- `/commit` - Commit validation fixes
-- `/sync-docs` - Update architecture docs
+- `design-patterns` - Detailed pattern validation
+- `feature-planning` - Plan fixes for issues
+- `commit-manager` - Commit validation fixes

@@ -1,0 +1,51 @@
+# Learned Package Config
+# Auto-updated by agents after implementations
+# DO NOT manually edit - use package-config.md for base knowledge
+
+version: 1
+last_updated: null
+updated_by: null
+
+published_versions: []
+# Versions published to registries
+# - id: "pub-001"
+#   package: "@myorg/core-utils"
+#   version: "1.2.3"
+#   registry: "npm"
+#   published_at: "2024-01-27"
+#   published_by: "ci-pipeline"
+
+version_bumps: []
+# Version changes detected
+# - id: "bump-001"
+#   package: "@myorg/api-client"
+#   from_version: "2.0.0"
+#   to_version: "2.1.0"
+#   bump_type: "minor"
+#   reason: "Added new endpoint support"
+#   detected_at: "2024-01-27"
+
+registry_issues: []
+# Issues with package registries
+# - id: "issue-001"
+#   registry: "npm.myorg.com"
+#   issue: "Authentication failed"
+#   detected_at: "2024-01-27"
+#   resolved: false
+
+dependency_updates: []
+# Dependency updates across repos
+# - id: "update-001"
+#   package: "@myorg/core-utils"
+#   old_version: "1.1.0"
+#   new_version: "1.2.3"
+#   updated_in: ["web-app", "order-api"]
+#   pending_in: ["admin-app"]
+#   detected_at: "2024-01-27"
+
+stats:
+  total_published: 0
+  total_bumps: 0
+  total_issues: 0
+  total_updates: 0
+  last_scan: null

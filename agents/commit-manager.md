@@ -4,54 +4,95 @@ description: |
   Intelligent commit message generation and git operations across multiple repos.
   Use for: committing changes, generating conventional commit messages,
   pushing to remote, handling multi-repo workflows.
-tools: [Read, Grep, Glob, Bash]
+tools: [Read, Grep, Glob, Bash, Task]
 model: sonnet
 ---
 
 # Purpose
-Analyzes code changes across repositories, generates semantic commit messages following conventional commits, and manages git operations.
+
+Analyzes code changes across repositories, generates semantic commit messages following
+conventional commits, and manages git operations. This is a reasoning agent that uses
+built-in tools (Read, Grep, Glob) for analysis and Bash only for git commands.
 
 # Variables
+
 - `$REPOS_ROOT (path)`: Root directory containing all repositories
 - `$TARGET_REPOS (string, optional)`: Comma-separated repo names, or "changed" for auto-detect
 - `$DRY_RUN (bool)`: Preview commits without executing (default: true)
 - `$AUTO_PUSH (bool)`: Push after commit (default: false)
 - `$TICKET_ID (string, optional)`: Ticket/issue ID to include in commit
 
-# Context Requirements
-- references/commit-conventions.md
-- references/repo-config.md (repo-specific commit rules)
+# Knowledge References
+
+Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+```
+knowledge/commit-conventions.md              → Base commit message formats
+knowledge/commit-conventions.learned.yaml    → Learned commit patterns (auto-discovered)
+knowledge/packages/repo-config.md            → Base repo-specific commit rules
+knowledge/packages/package-config.learned.yaml → Learned package configs (auto-discovered)
+```
+
+**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
 
 # Instructions
 
-## 1. Discover Changed Repositories
-```bash
-python scripts/git-operations.py discover-changes \
-  --repos-root $REPOS_ROOT \
-  --output /tmp/changed-repos.json
+## 1. Load Knowledge (Base + Learned)
+```
+Read: knowledge/commit-conventions.md
+Read: knowledge/commit-conventions.learned.yaml
+Read: knowledge/packages/repo-config.md
+Read: knowledge/packages/package-config.learned.yaml
 ```
 
-Output identifies repos with:
+Merge patterns from both - learned YAML patterns extend base MD.
+
+## 2. Discover Changed Repositories
+
+Use Glob to find repositories:
+```
+Glob: $REPOS_ROOT/*/
+```
+
+For each repository, check for changes using Bash (git commands only):
+```
+Bash: cd [repo] && git status --porcelain
+```
+
+Identify repos with:
 - Staged changes
 - Unstaged changes
 - Untracked files
 
-## 2. For Each Changed Repository
+## 3. For Each Changed Repository
 
-### 2.1 Analyze Changes
-```bash
-python scripts/git-operations.py analyze-changes \
-  --repo-path <repo_path> \
-  --output /tmp/analysis-<repo>.json
+### 3.1 Analyze Changes
+
+Get the diff to understand changes:
+```
+Bash: cd [repo] && git diff --cached --stat
+Bash: cd [repo] && git diff --cached
 ```
 
-Analysis includes:
+For unstaged changes:
+```
+Bash: cd [repo] && git diff --stat
+```
+
+Categorize changed files by reading them:
+```
+Glob: [repo]/src/**/*          → Source files
+Glob: [repo]/test/**/*         → Test files
+Glob: [repo]/docs/**/*         → Documentation
+Glob: [repo]/*.json            → Config files
+```
+
+Analysis should identify:
 - Files changed (added, modified, deleted)
 - Change categories (src, tests, docs, config, deps)
 - Affected components/modules
 - Breaking change indicators
 
-### 2.2 Determine Commit Type
+### 3.2 Determine Commit Type
 
 Based on analysis, classify as:
 
@@ -68,7 +109,7 @@ Based on analysis, classify as:
 | `ci` | CI/CD pipeline changes |
 | `build` | Build system changes |
 
-### 2.3 Detect Breaking Changes
+### 3.3 Detect Breaking Changes
 
 Flag as BREAKING if:
 - Public API signatures changed
@@ -77,7 +118,13 @@ Flag as BREAKING if:
 - Database migrations present
 - Major version bump in dependencies
 
-### 2.4 Generate Commit Message
+Check for breaking patterns:
+```
+Grep: "BREAKING" in [repo]/CHANGELOG.md
+Grep: "@deprecated" in [repo]/src/**/*
+```
+
+### 3.4 Generate Commit Message
 
 Format:
 ```
@@ -94,32 +141,45 @@ Rules:
 - Body: what and why (not how)
 - Footer: BREAKING CHANGE, ticket refs
 
-## 3. Execute Commits (if not dry-run)
+## 4. Execute Commits (if not dry-run)
 
-```bash
-python scripts/git-operations.py commit \
-  --repo-path <repo_path> \
-  --message "<generated_message>" \
-  --stage-all  # or --stage-specific <files>
+Stage files:
+```
+Bash: cd [repo] && git add [specific-files]
 ```
 
-## 4. Push (if auto-push enabled)
-
-```bash
-python scripts/git-operations.py push \
-  --repo-path <repo_path> \
-  --branch <current_branch>
+Or stage all:
+```
+Bash: cd [repo] && git add .
 ```
 
-## 5. Generate Summary Report
+Create commit:
+```
+Bash: cd [repo] && git commit -m "[generated_message]"
+```
+
+## 5. Push (if auto-push enabled)
+
+```
+Bash: cd [repo] && git push origin [current_branch]
+```
+
+## 6. Generate Summary Report
 
 # Validation Rules
+
 - Commit message follows conventional commits
-- No secrets in committed files
+- No secrets in committed files (check patterns):
+```
+Grep: "password\s*=" in [staged files]
+Grep: "api_key\s*=" in [staged files]
+Grep: "secret\s*=" in [staged files]
+```
 - No large binary files
 - Tests pass (optional pre-commit check)
 
 # Report Format
+
 ```json
 {
   "agent": "commit-manager",
@@ -153,6 +213,34 @@ python scripts/git-operations.py push \
     "commits_created": 3,
     "pushed": 3,
     "breaking_changes": 0
+  },
+  "learnings_recorded": {
+    "new_scopes": 0,
+    "commit_patterns": 0,
+    "violations_found": 0
   }
 }
 ```
+
+## 7. Record Learnings (REQUIRED)
+
+After committing, record any NEW discoveries to learned knowledge:
+
+```
+Task: spawn knowledge-updater
+Prompt: |
+  Update learned knowledge with discoveries:
+  $KNOWLEDGE_TYPE = commit-conventions
+  $SOURCE_AGENT = commit-manager
+  $LEARNING = {
+    "commit_patterns": [newly observed commit patterns],
+    "scope_usage": [scopes used with occurrence counts],
+    "convention_violations": [any violations detected],
+    "new_scopes": [scopes not in base knowledge]
+  }
+```
+
+Only record if:
+- New scope not in base knowledge
+- New commit pattern observed
+- Violation detected (for future prevention)

@@ -4,25 +4,45 @@ description: |
   Documentation synchronization between code repositories and Confluence.
   Trigger: documentation updates, ADR changes, architecture docs sync,
   keeping Confluence in sync with code-level documentation.
+triggers:
+  - /sync-docs
+  - sync documentation
+  - update confluence
 ---
 
 # Purpose
-Synchronizes architecture documentation between code repositories and Confluence, ensuring single source of truth with bi-directional awareness.
 
-# Resources
+Synchronizes architecture documentation between code repositories and Confluence,
+ensuring single source of truth with bi-directional awareness.
 
-## Scripts
-- `scripts/confluence-api.py`: Confluence REST API wrapper
-- `scripts/extract-docs.py`: Extract documentation from repositories
-- `scripts/diff-docs.py`: Compare local and Confluence versions
-- `scripts/sync-docs.py`: Orchestrate sync operations
+# Knowledge References
 
-## References
-- `references/confluence-structure.md`: Your Confluence space organization
-- `references/doc-mapping.md`: Mapping between repo docs and Confluence pages
+This skill loads domain knowledge from:
 
-## Assets
-- `assets/confluence-template.html`: Standard page template
+```
+knowledge/architecture/system-architecture.md        → ADR templates, system structure
+```
+
+# Cookbook
+
+| Recipe | Purpose |
+|--------|---------|
+| `extract-docs.md` | How to extract docs from repos |
+| `compare-confluence.md` | Compare local vs Confluence |
+| `sync-workflow.md` | Push/pull sync workflow |
+
+# Tools
+
+| Tool | Purpose |
+|------|---------|
+| `confluence-api.py` | Confluence REST API wrapper |
+| `extract-docs.py` | Extract docs from repositories |
+| `diff-docs.py` | Compare local and Confluence |
+| `sync-docs.py` | Orchestrate sync operations |
+
+# Assets
+
+- `assets/confluence-template.html` - Standard page template
 
 # Configuration
 <!-- TODO: Set your Confluence details -->
@@ -49,7 +69,7 @@ doc_sources:
 ## Extract Documentation
 ```bash
 # Extract all docs from repositories
-python scripts/extract-docs.py \
+python tools/extract-docs.py \
   --repos-root $REPOS_ROOT \
   --output docs-manifest.json
 
@@ -59,7 +79,7 @@ python scripts/extract-docs.py \
 ## Compare with Confluence
 ```bash
 # Diff local docs against Confluence
-python scripts/diff-docs.py \
+python tools/diff-docs.py \
   --manifest docs-manifest.json \
   --confluence-space ARCH \
   --output diff-report.json
@@ -70,12 +90,12 @@ python scripts/diff-docs.py \
 ## Sync to Confluence
 ```bash
 # Preview changes (dry-run)
-python scripts/sync-docs.py \
+python tools/sync-docs.py \
   --diff diff-report.json \
   --dry-run
 
 # Apply changes
-python scripts/sync-docs.py \
+python tools/sync-docs.py \
   --diff diff-report.json \
   --apply
 ```
@@ -83,7 +103,7 @@ python scripts/sync-docs.py \
 ## Pull from Confluence
 ```bash
 # For docs that are Confluence-primary
-python scripts/sync-docs.py \
+python tools/sync-docs.py \
   --direction pull \
   --pages "Architecture Overview,System Diagram" \
   --output-dir ./docs/from-confluence

@@ -2,93 +2,210 @@
 name: core-validator
 description: |
   Core/shared library validator.
-  Use for: validating shared packages, common utilities,
-  SDK libraries, design system components.
-tools: [Read, Grep, Glob, Bash]
+  Validates shared packages for API stability, versioning, documentation.
+  All specific packages defined in knowledge files.
+tools: [Read, Grep, Glob, Task]
 model: sonnet
 ---
 
 # Purpose
-Validates core/shared libraries for API stability, documentation, versioning, and cross-service compatibility.
+
+Validates core/shared libraries for API stability, documentation, versioning,
+and cross-service compatibility. This is a reasoning agent that uses built-in
+tools (Read, Grep, Glob) for all analysis - no external scripts.
 
 # Variables
+
 - `$CORE_PATH (path)`: Path to core library repository
-- `$LIBRARY_TYPE (string)`: sdk|utils|design-system|shared-types
+- `$LIBRARY_TYPE (string, optional)`: Auto-detected if not provided
 - `$CHECK_SCOPE (string)`: all|api|versioning|docs|breaking (default: all)
 
-# Context Requirements
-- references/core-patterns/{$LIBRARY_TYPE}.md
-- references/rules/library-design.md
-- references/rules/versioning.md
-- references/rules/breaking-changes.md
+# Knowledge References
+
+Load patterns from BOTH base knowledge (MD) and learned knowledge (YAML):
+```
+knowledge/packages/core-packages.md               → Base package APIs and usage
+knowledge/packages/core-packages.learned.yaml     → Learned package usage (auto-discovered)
+knowledge/architecture/design-patterns.md         → Base library design patterns
+knowledge/architecture/design-patterns.learned.yaml → Learned patterns (auto-discovered)
+knowledge/packages/package-config.md              → Base package versions and registries
+knowledge/packages/package-config.learned.yaml    → Learned configs (auto-discovered)
+```
+
+**Load order**: Base MD first, then YAML. YAML extends MD with discovered patterns.
 
 # Instructions
 
-1. Identify library type if not provided:
-   - Run `scripts/detect-library-type.py $CORE_PATH`
+## 1. Load Knowledge (Base + Learned)
+```
+Read: knowledge/packages/core-packages.md
+Read: knowledge/packages/core-packages.learned.yaml
+Read: knowledge/packages/package-config.md
+Read: knowledge/packages/package-config.learned.yaml
+```
 
-2. Load library-specific patterns from references/core-patterns/
+Merge patterns from both - learned YAML patterns extend base MD.
 
-3. Validate API surface:
-   - Run `scripts/validate-api-surface.py $CORE_PATH`
-   - Check exports are intentional (index files)
-   - Check public API is documented
-   - Check types are exported properly
-   - Check for internal leakage
+## 2. Identify Library Type
+If $LIBRARY_TYPE not provided, detect using Glob:
+```
+Glob: $CORE_PATH/package.json      → npm package
+Glob: $CORE_PATH/*.csproj          → nuget package
+Glob: $CORE_PATH/setup.py          → python package
+Glob: $CORE_PATH/pyproject.toml    → python package
+Glob: $CORE_PATH/go.mod            → go module
+```
 
-4. Validate versioning:
-   - Run `scripts/validate-versioning.py $CORE_PATH`
-   - Check semantic versioning compliance
-   - Check CHANGELOG maintained
-   - Check version bumps match change types
+Read the found file to get more details:
+```
+Read: $CORE_PATH/package.json
+  - name field → package name
+  - version field → current version
+```
 
-5. Validate documentation:
-   - Run `scripts/validate-docs.py $CORE_PATH`
-   - Check README completeness
-   - Check API documentation exists
-   - Check usage examples provided
-   - Check migration guides for major versions
+## 3. Validate API Surface
 
-6. Check for breaking changes:
-   - Run `scripts/detect-breaking-changes.py $CORE_PATH`
-   - Compare current API with last release
-   - Flag removed exports
-   - Flag changed signatures
-   - Flag behavior changes
+### Check exports (npm)
+```
+Read: $CORE_PATH/src/index.ts
+Grep: "export" in $CORE_PATH/src/index.ts
+```
 
-# Validation Rules
-<!-- TODO: Populate with your core library rules -->
-- API design: See references/rules/library-design.md
-- Versioning: See references/rules/versioning.md
-- Documentation: See references/rules/library-docs.md
-- Breaking changes: See references/rules/breaking-changes.md
-- Dependency management: See references/rules/library-dependencies.md
+### Check exports (.NET)
+```
+Grep: "public class" in $CORE_PATH/**/*.cs
+Grep: "public interface" in $CORE_PATH/**/*.cs
+```
+
+### Check for internal leakage
+```
+Grep: "internal" in $CORE_PATH/**/*.cs (should be used for non-public)
+Grep: "@internal" in $CORE_PATH/**/*.ts (TSDoc internal marker)
+```
+
+### Check types exported properly
+```
+Glob: $CORE_PATH/**/*.d.ts
+Read: $CORE_PATH/tsconfig.json (check declaration: true)
+```
+
+## 4. Validate Versioning
+
+### Check version format
+```
+Read: $CORE_PATH/package.json (version field)
+Read: $CORE_PATH/*.csproj (Version element)
+```
+Verify semver format: major.minor.patch
+
+### Check CHANGELOG
+```
+Glob: $CORE_PATH/CHANGELOG.md
+Read: $CORE_PATH/CHANGELOG.md
+```
+Verify recent version is documented.
+
+## 5. Validate Documentation
+
+### Check README
+```
+Glob: $CORE_PATH/README.md
+Read: $CORE_PATH/README.md
+```
+
+Check for sections:
+- Installation
+- Usage
+- API reference
+- Examples
+
+### Check API docs
+```
+Glob: $CORE_PATH/docs/**/*.md
+Glob: $CORE_PATH/**/*.xml (XML docs for .NET)
+```
+
+### Check examples
+```
+Glob: $CORE_PATH/examples/**/*
+Glob: $CORE_PATH/samples/**/*
+```
+
+## 6. Check for Breaking Changes
+
+### Compare with previous version
+```
+Bash: git diff HEAD~1 -- src/index.ts (exports changed?)
+Bash: git log --oneline -10 (recent changes)
+```
+
+### Look for removal markers
+```
+Grep: "@deprecated" in $CORE_PATH/**/*
+Grep: "BREAKING" in $CORE_PATH/CHANGELOG.md
+```
 
 # Report Format
+
 ```json
 {
   "agent": "core-validator",
-  "library_type": "$LIBRARY_TYPE",
+  "library_type": "[detected]",
+  "library_name": "[from package file]",
   "status": "PASS|WARN|FAIL",
   "api_surface": {
     "status": "PASS|WARN|FAIL",
     "exports_count": 0,
+    "public_apis": [],
+    "internal_leakage": [],
     "issues": []
   },
   "versioning": {
     "status": "PASS|WARN|FAIL",
     "current_version": "",
+    "changelog_updated": true,
     "issues": []
   },
   "documentation": {
     "status": "PASS|WARN|FAIL",
-    "coverage": "",
+    "readme_exists": true,
+    "api_docs_exist": true,
+    "examples_exist": true,
     "issues": []
   },
   "breaking_changes": {
     "detected": false,
     "changes": []
   },
+  "learnings_recorded": {
+    "new_exports": 0,
+    "breaking_changes": 0,
+    "missing_usages": 0
+  },
   "summary": ""
 }
 ```
+
+## 7. Record Learnings (REQUIRED)
+
+After validation, record any NEW discoveries to learned knowledge:
+
+```
+Task: spawn knowledge-updater
+Prompt: |
+  Update learned knowledge with discoveries:
+  $KNOWLEDGE_TYPE = core-packages
+  $SOURCE_AGENT = core-validator
+  $SOURCE_FILE = $CORE_PATH
+  $LEARNING = {
+    "package_usages": [newly discovered usage patterns],
+    "new_exports": [exports not in base knowledge],
+    "breaking_changes": [breaking changes detected],
+    "missing_usages": [places where core should be used but isn't]
+  }
+```
+
+Only record if:
+- New export not in base knowledge
+- Breaking change detected
+- Missing usage pattern discovered

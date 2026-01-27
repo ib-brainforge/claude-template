@@ -31,12 +31,34 @@ implementation plans for full-stack features (frontend + backend slices).
 - `$OUTPUT_DIR (string)`: Where to write plans (default: ./feature-plans)
 - `$VALIDATION_LEVEL (string)`: strict|standard|lenient (default: standard)
 
-# Context Requirements
+# Knowledge References
 
-- references/system-architecture.md
-- references/rules/*.md
-- references/design-patterns/*.md
-- Access to all repository roots
+This skill loads domain knowledge from:
+
+```
+knowledge/architecture/system-architecture.md        → System structure and service map
+knowledge/architecture/service-boundaries.md  → Service interaction rules
+knowledge/architecture/design-patterns.md     → Required patterns for frontend/backend
+knowledge/validation/backend-patterns.md       → What to avoid
+knowledge/architecture/tech-stack.md          → Framework versions and conventions
+knowledge/packages/core-packages.md       → Shared libraries and APIs
+```
+
+# Cookbook
+
+| Recipe | Purpose |
+|--------|---------|
+| `discover-affected.md` | How to find affected services |
+| `consult-architects.md` | Subagent consultation workflow |
+| `synthesize-plan.md` | How to combine inputs into plan |
+| `validate-plan.md` | Plan validation criteria |
+| `generate-output.md` | Output file generation |
+
+# Tools
+
+| Tool | Purpose |
+|------|---------|
+| `feature-analysis.py` | Multi-command feature analysis tool |
 
 # Workflow
 
@@ -98,7 +120,7 @@ implementation plans for full-stack features (frontend + backend slices).
 ## Phase 1: Discovery
 
 ```bash
-python skills/feature-planning/scripts/feature-analysis.py discover \
+python skills/feature-planning/tools/feature-analysis.py discover \
   --feature "$FEATURE_NAME" \
   --description "$DESCRIPTION" \
   --repos-root $REPOS_ROOT \
@@ -185,7 +207,7 @@ Prompt: |
 ## Phase 4: Synthesis
 
 ```bash
-python skills/feature-planning/scripts/feature-analysis.py synthesize \
+python skills/feature-planning/tools/feature-analysis.py synthesize \
   --master-input /tmp/master-input.json \
   --frontend-input /tmp/frontend-input.json \
   --backend-input /tmp/backend-input.json \
@@ -212,13 +234,13 @@ Prompt: |
 
 ```bash
 # Generate plan document
-python skills/feature-planning/scripts/feature-analysis.py write-plan \
+python skills/feature-planning/tools/feature-analysis.py write-plan \
   --feature "$FEATURE_NAME" \
   --plan /tmp/validated-plan.json \
   --output "$OUTPUT_DIR/feature-$FEATURE_NAME-plan.md"
 
 # Generate task export (optional)
-python skills/feature-planning/scripts/feature-analysis.py export-tasks \
+python skills/feature-planning/tools/feature-analysis.py export-tasks \
   --plan /tmp/validated-plan.json \
   --format github-issues \
   --output "$OUTPUT_DIR/feature-$FEATURE_NAME-tasks.json"

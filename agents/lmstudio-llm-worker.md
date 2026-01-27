@@ -10,7 +10,13 @@ model: haiku
 ---
 
 # Purpose
+
 Interfaces with LM Studio's OpenAI-compatible API to offload suitable tasks from Claude API.
+
+**Note**: This agent uses Bash to call Python scripts for LLM API communication.
+This is correct because it requires HTTP calls to external LM Studio API which cannot be done
+with built-in tools (Read, Grep, Glob). This is different from validator agents which
+should use built-in tools for code analysis.
 
 # Variables
 - `$LMSTUDIO_HOST (string)`: LM Studio server URL (default: http://localhost:1234)

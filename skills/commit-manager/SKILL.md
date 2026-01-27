@@ -37,10 +37,27 @@ uses local LLM for cost-effective message generation.
 - `$USE_LOCAL_LLM (bool)`: Use Ollama/LM Studio (default: auto)
 - `$FEATURE_TAG (string, optional)`: Feature reference for commits
 
-# Context Requirements
+# Knowledge References
 
-- references/commit-conventions.md
-- Git repositories with staged changes
+This skill loads domain knowledge from:
+
+```
+knowledge/commit-conventions.md  → Commit message format and rules
+```
+
+# Cookbook
+
+| Recipe | Purpose |
+|--------|---------|
+| `discover-changes.md` | How to find repos with changes |
+| `generate-message.md` | Message generation with LLM fallback |
+| `commit-type-detection.md` | How to detect commit type |
+
+# Tools
+
+| Tool | Purpose |
+|------|---------|
+| `git-operations.py` | Multi-command git operations tool |
 
 # Workflow
 
@@ -82,7 +99,7 @@ uses local LLM for cost-effective message generation.
 ## 1. Discover Changes
 
 ```bash
-python skills/commit-manager/scripts/git-operations.py status \
+python skills/commit-manager/tools/git-operations.py status \
   --repos-root $REPOS_ROOT \
   --scope $SCOPE \
   --output /tmp/git-status.json
@@ -92,14 +109,14 @@ python skills/commit-manager/scripts/git-operations.py status \
 
 ### 2.1 Get Diff
 ```bash
-python skills/commit-manager/scripts/git-operations.py diff \
+python skills/commit-manager/tools/git-operations.py diff \
   --repo $REPO_PATH \
   --output /tmp/repo-diff.json
 ```
 
 ### 2.2 Detect Commit Type
 ```bash
-python skills/commit-manager/scripts/git-operations.py detect-type \
+python skills/commit-manager/tools/git-operations.py detect-type \
   --diff /tmp/repo-diff.json \
   --output /tmp/commit-type.json
 ```
@@ -124,7 +141,7 @@ Prompt: |
 - If `status: PASS` → Use generated message
 
 **Claude Fallback:**
-Analyze diff and generate message following references/commit-conventions.md
+Analyze diff and generate message following knowledge/commit-conventions.md
 
 ### 2.4 Validate Message
 Ensure message follows:
@@ -137,14 +154,14 @@ Ensure message follows:
 
 ```bash
 # Dry run - preview only
-python skills/commit-manager/scripts/git-operations.py commit \
+python skills/commit-manager/tools/git-operations.py commit \
   --repo $REPO_PATH \
   --message "$COMMIT_MESSAGE" \
   --dry-run \
   --output /tmp/commit-preview.json
 
 # Actual commit
-python skills/commit-manager/scripts/git-operations.py commit \
+python skills/commit-manager/tools/git-operations.py commit \
   --repo $REPO_PATH \
   --message "$COMMIT_MESSAGE" \
   --output /tmp/commit-result.json
@@ -153,7 +170,7 @@ python skills/commit-manager/scripts/git-operations.py commit \
 ## 4. Push (if requested)
 
 ```bash
-python skills/commit-manager/scripts/git-operations.py push \
+python skills/commit-manager/tools/git-operations.py push \
   --repo $REPO_PATH \
   --output /tmp/push-result.json
 ```
@@ -230,16 +247,6 @@ The skill automatically tries local LLM first for cost savings:
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-# Scripts Reference
-
-| Script | Command | Purpose |
-|--------|---------|---------|
-| `git-operations.py` | `status` | Find repos with changes |
-| `git-operations.py` | `diff` | Get detailed diff |
-| `git-operations.py` | `detect-type` | Determine commit type |
-| `git-operations.py` | `commit` | Create commit |
-| `git-operations.py` | `push` | Push to remote |
 
 # Follow-up Skills
 

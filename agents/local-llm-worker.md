@@ -10,7 +10,14 @@ model: haiku
 ---
 
 # Purpose
-Interfaces with local Ollama instance to offload suitable tasks from Claude API, reducing costs for high-volume, lower-complexity operations.
+
+Interfaces with local Ollama instance to offload suitable tasks from Claude API,
+reducing costs for high-volume, lower-complexity operations.
+
+**Note**: This agent uses Bash to call Python scripts for LLM API communication.
+This is correct because it requires HTTP calls to external Ollama API which cannot be done
+with built-in tools (Read, Grep, Glob). This is different from validator agents which
+should use built-in tools for code analysis.
 
 # Variables
 - `$OLLAMA_HOST (string)`: Ollama server URL (default: from env or http://localhost:11434)
