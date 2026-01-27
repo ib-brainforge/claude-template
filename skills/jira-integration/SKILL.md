@@ -231,12 +231,62 @@ Bash: curl -s -X POST -u "$JIRA_USER:$JIRA_API_TOKEN" \
 
 ## 5. Action: Add Comment
 
+### Standard Comment
 ```
 Bash: curl -s -X POST -u "$JIRA_USER:$JIRA_API_TOKEN" \
   -H "Content-Type: application/json" \
   "$JIRA_URL/rest/api/3/issue/$TICKET_ID/comment" \
   -d '{"body":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"$COMMENT"}]}]}}'
 ```
+
+### Bug Fix Completion Comment (Required Format)
+
+When bugs are fixed, post a **business-focused** table comment. Keep it simple and non-technical.
+
+**Format:**
+```
+| Issue | Resolution |
+|-------|------------|
+| [Business description of problem] | [Business description of fix] |
+```
+
+**Example - CORRECT (Business Focus):**
+```
+| Issue | Resolution |
+|-------|------------|
+| Users couldn't log in with special characters in password | Login now accepts all valid password characters |
+| Session was expiring too quickly | Session timeout extended to expected duration |
+| Error messages were confusing | Clear guidance now shown when login fails |
+```
+
+**Example - WRONG (Too Technical):**
+```
+| Issue | Resolution |
+|-------|------------|
+| Password not URL-encoded in auth.cs line 45 | Added Uri.EscapeDataString() call |
+```
+
+**Jira Table Syntax (ADF format):**
+```bash
+COMMENT=$(cat <<'EOF'
+| Issue | Resolution |
+|-------|------------|
+| [issue 1] | [resolution 1] |
+| [issue 2] | [resolution 2] |
+EOF
+)
+
+curl -s -X POST -u "$JIRA_USER:$JIRA_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  "$JIRA_URL/rest/api/3/issue/$TICKET_ID/comment" \
+  -d "{\"body\":{\"type\":\"doc\",\"version\":1,\"content\":[{\"type\":\"table\",\"attrs\":{\"isNumberColumnEnabled\":false,\"layout\":\"default\"},\"content\":[{\"type\":\"tableRow\",\"content\":[{\"type\":\"tableHeader\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Issue\"}]}]},{\"type\":\"tableHeader\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Resolution\"}]}]}]}$(echo "$ROWS")]}]}}"
+```
+
+**Key Rules:**
+- NO code references (no file names, line numbers, function names)
+- NO technical jargon (no "URL encoding", "null check", "API endpoint")
+- Write as if explaining to a business stakeholder
+- Focus on what the user experiences, not what the code does
 
 ## 6. Action: Link Commit
 

@@ -193,18 +193,24 @@ Note in report that manual testing is needed.
 
 ### 7. Report Results
 
-Return structured result:
+Return structured result with **business-focused descriptions** for Jira:
 
 ```json
 {
   "bug_id": 1,
   "status": "fixed|failed|needs_review",
-  "description": "Login fails with special characters in password",
-  "root_cause": "Password not URL-encoded before API call",
-  "fix_applied": {
-    "file": "src/auth/login.cs",
-    "line": 45,
-    "change": "Added URL encoding for password parameter"
+  "technical": {
+    "description": "Login fails with special characters in password",
+    "root_cause": "Password not URL-encoded before API call",
+    "fix_applied": {
+      "file": "src/auth/login.cs",
+      "line": 45,
+      "change": "Added URL encoding for password parameter"
+    }
+  },
+  "business": {
+    "issue": "Users couldn't log in with special characters in password",
+    "resolution": "Login now accepts all valid password characters"
   },
   "files_modified": ["src/auth/login.cs"],
   "tests": {
@@ -215,6 +221,10 @@ Return structured result:
   "notes": "Consider adding more test cases for special characters"
 }
 ```
+
+**IMPORTANT**: The `business` section is used for Jira comments.
+- Write `issue` as what the user experienced (not technical cause)
+- Write `resolution` as what now works (not technical fix)
 
 ## Fix Templates
 

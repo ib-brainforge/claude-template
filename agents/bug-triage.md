@@ -207,17 +207,45 @@ Prompt: |
 
 ### 9. Update Jira Ticket
 
+Post a **business-focused** completion comment as a simple table.
+
+**IMPORTANT**: The comment must be understandable by non-technical stakeholders.
+- NO code references (file names, line numbers, function names)
+- NO technical jargon (URL encoding, null checks, API calls)
+- Focus on what the user/business experiences
+
+**Required Format:**
+```
+| Issue | Resolution |
+|-------|------------|
+| [What was broken - user perspective] | [What now works - user perspective] |
+```
+
+**Example - CORRECT:**
+```
+| Issue | Resolution |
+|-------|------------|
+| Users couldn't log in with special characters in password | Login now accepts all valid password characters |
+| Session was expiring too quickly | Session timeout works as expected |
+```
+
+**Example - WRONG (too technical):**
+```
+| Issue | Resolution |
+|-------|------------|
+| Password not URL-encoded | Added Uri.EscapeDataString() |
+```
+
 ```
 Task: spawn jira-integration
 Prompt: |
   Ticket: $TICKET_ID
   Action: comment
   Comment: |
-    Fixed bugs:
-    - Bug #1: [brief description] - Fixed in [commit-sha]
-    - Bug #2: [brief description] - Fixed in [commit-sha]
-
-    All changes validated and committed.
+    | Issue | Resolution |
+    |-------|------------|
+    | [business description of bug 1] | [business description of fix 1] |
+    | [business description of bug 2] | [business description of fix 2] |
 ```
 
 If all bugs fixed:
@@ -249,11 +277,19 @@ Prompt: |
     {
       "bug_id": 1,
       "status": "fixed",
+      "issue": "Users couldn't log in with special characters in password",
+      "resolution": "Login now accepts all valid password characters",
       "service": "auth-service",
-      "files_changed": ["src/auth/login.cs"],
-      "commit_sha": "abc123"
+      "files_changed": ["src/auth/login.cs"]
     }
   ],
+  "jira_comment": {
+    "format": "table",
+    "content": [
+      {"issue": "Users couldn't log in with special characters", "resolution": "Login accepts all password characters"},
+      {"issue": "Session expired too quickly", "resolution": "Session timeout works correctly"}
+    ]
+  },
   "validation": {
     "status": "PASS",
     "warnings": []
