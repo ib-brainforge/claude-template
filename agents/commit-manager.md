@@ -144,25 +144,72 @@ Rules:
 - Body: what and why (not how)
 - Footer: BREAKING CHANGE, ticket refs
 
-## 4. Execute Commits (if not dry-run)
+## 4. Pre-Commit Validation (Multi-Service Changes)
 
-Stage files:
+If changes span multiple repos AND include `feat` type:
 ```
-Bash: cd [repo] && git add [specific-files]
-```
-
-Create commit:
-```
-Bash: cd [repo] && git commit -m "[generated_message]"
+Task: spawn backend-pattern-validator (for backend repos)
+Task: spawn frontend-pattern-validator (for frontend repos)
 ```
 
-## 5. Push (if auto-push enabled)
+**On validation result:**
+- PASS → Proceed to commit
+- WARN → Show warnings, ask user to proceed or abort
+- FAIL → Show errors, abort commits
+
+**Skip validation if:**
+- Single repo change
+- Non-feat changes (fix, docs, chore, etc.)
+- User passed `--skip-validation` flag
+
+## 5. Execute Commits - Two-Phase (if not dry-run)
+
+Uses two-phase commit to prevent partial failures across repos.
+
+### Phase 1: Stage All Repositories
+```
+For each repo:
+  Bash: cd [repo] && git add [specific-files]
+```
+
+### Phase 2: Verify Staging
+```
+For each repo:
+  Bash: cd [repo] && git diff --cached --stat
+
+Verify:
+  - All expected files are staged
+  - No unexpected files staged
+  - No secrets detected in staged files
+```
+
+If verification fails → Abort all (unstage everything):
+```
+For each repo:
+  Bash: cd [repo] && git reset HEAD
+```
+Report error and exit.
+
+### Phase 3: Commit All Repositories
+Only proceed if Phase 2 passed for ALL repos:
+```
+For each repo:
+  Bash: cd [repo] && git commit -m "[generated_message]"
+```
+
+This phase is fast (no I/O wait) so failure is unlikely.
+If a commit fails mid-way, report which repos succeeded/failed.
+
+## 6. Push (if auto-push enabled)
 
 ```
-Bash: cd [repo] && git push origin [current_branch]
+For each repo:
+  Bash: cd [repo] && git push origin [current_branch]
 ```
 
-## 6. Record Learned Knowledge (SINGLE WRITER)
+Push failures don't affect commits - user can retry push manually.
+
+## 7. Record Learned Knowledge (SINGLE WRITER)
 
 **This is the ONLY place where learned knowledge is recorded.**
 

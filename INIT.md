@@ -65,7 +65,11 @@ The `.learned.yaml` files start empty - they'll populate as agents run. Verify t
 ls knowledge/**/*.learned.yaml
 ```
 
-### 4. Test the Setup Locally
+### 4. Test the Setup
+
+#### Dry-Run Mode (Recommended First)
+
+All commands support dry-run to preview without making changes:
 
 ```bash
 # Navigate to your repos root
@@ -74,12 +78,74 @@ cd /path/to/your/repos
 # Run Claude Code
 claude
 
-# Test a validation
+# Test 1: Validate a service (read-only, always safe)
 > validate the auth-service against our patterns
 
-# Test commit generation
+# Test 2: Preview commits without executing (DRY_RUN=true is default)
 > analyze changes and suggest commits
+
+# Test 3: Plan a feature (creates plan file, no code changes)
+> plan adding a new property to user profile
 ```
+
+#### Sample Test Scenario
+
+Run this end-to-end test to verify the setup works:
+
+```
+Step 1: Make a small change
+  - Edit a file in one of your services (e.g., add a comment)
+
+Step 2: Run validation
+  > validate [service-name]
+  - Should load knowledge files
+  - Should return PASS/WARN/FAIL
+
+Step 3: Preview commit
+  > commit changes (dry-run)
+  - Should detect changed repo
+  - Should generate commit message
+  - Should NOT actually commit (dry-run)
+
+Step 4: Execute commit (when ready)
+  > commit changes --execute
+  - Should stage, validate, commit
+  - Should record learnings (if significant)
+
+Step 5: Verify learned knowledge
+  > cat knowledge/architecture/system-architecture.learned.yaml
+  - If multi-service feat, should see new entry
+  - If single fix, should be empty (not significant)
+```
+
+#### Verifying Agent Flow
+
+To see the full agent flow:
+
+```
+> plan adding lease_end_date to tenancy feature
+
+Expected flow:
+1. feature-planner loads knowledge
+2. Spawns validators in parallel
+3. Synthesizes plan
+4. Spawns plan-validator
+5. Outputs plan document
+
+Watch for:
+- Knowledge files being loaded
+- Subagents being spawned
+- Validation results returned
+```
+
+#### Troubleshooting
+
+| Issue | Check |
+|-------|-------|
+| "Knowledge file not found" | Verify paths in agent match actual file locations |
+| "No patterns loaded" | Check knowledge MD files have content |
+| Validation always passes | Add actual grep patterns to knowledge files |
+| Commits not recording | Only multi-service `feat` commits record learnings |
 
 ### 5. Customize Agents for Your Stack
 

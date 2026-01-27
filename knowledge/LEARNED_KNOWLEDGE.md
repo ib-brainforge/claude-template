@@ -41,7 +41,7 @@ Each `.md` knowledge file has a companion `.learned.yaml` file:
 # [topic].learned.yaml
 version: 1
 last_updated: "2024-01-27T10:30:00Z"
-updated_by: "feature-planner"
+updated_by: "commit-manager"
 
 # Significant feature additions
 features:
@@ -58,6 +58,16 @@ features:
         changes: ["TenancyEvents"]
     breaking: false
     notes: "Optional field, nullable DateTime"
+    # --- Observability metadata (auto-added by commit-manager) ---
+    recorded_at: "2024-01-27T10:30:00Z"   # When this was recorded
+    recorded_by: "commit-manager"          # Always commit-manager
+    source_commits:                        # Git commits that triggered this
+      - repo: "asset-backend"
+        sha: "abc1234"
+        message: "feat(tenancy): add lease_end_date"
+      - repo: "asset-mf"
+        sha: "def5678"
+        message: "feat(tenancy): add lease end date picker"
 
 # New service communications discovered
 communications:
@@ -177,20 +187,190 @@ commit-manager (after commits complete)
 - Learnings based on actual committed changes (not planned changes)
 - Clear ownership and responsibility
 
+## Human Override (Manual Editing)
+
+YAML files can be edited directly by humans. This is useful for:
+- Adding knowledge that wasn't captured automatically
+- Correcting incorrect entries
+- Promoting entries to base knowledge
+- Removing obsolete entries
+
+### Adding Entries Manually
+
+```yaml
+# Add to system-architecture.learned.yaml
+features:
+  - id: "feat-20240127-manual"      # Use "manual" suffix for human entries
+    date: "2024-01-27"
+    description: "Describe the feature clearly"
+    ticket: "FEAT-123"              # Optional
+    affected_services:
+      - name: "service-name"
+        changes: ["what changed"]
+    breaking: false
+    notes: "Added manually - [reason]"
+    added_by: "human"               # Mark as human-added
+```
+
+### Editing Existing Entries
+
+```yaml
+# Before
+features:
+  - id: "feat-20240127-001"
+    description: "Added X to service"
+
+# After (add note about edit)
+features:
+  - id: "feat-20240127-001"
+    description: "Added X to service (corrected: also affects service-b)"
+    edited_at: "2024-02-15"
+    edited_by: "human"
+```
+
+### Deleting Entries
+
+Option 1: Remove the entry entirely
+Option 2: Mark as deleted (preserves history):
+```yaml
+features:
+  - id: "feat-20240127-001"
+    deleted: true
+    deleted_at: "2024-02-15"
+    deleted_reason: "Feature was reverted"
+```
+
+### Validation After Manual Edit
+
+```bash
+# Verify YAML syntax
+python -c "import yaml; yaml.safe_load(open('file.learned.yaml'))"
+
+# Commit with clear message
+git add file.learned.yaml
+git commit -m "docs(knowledge): [add|edit|remove] [description]"
+```
+
 ## Deduplication Rules
 
 1. **Same ticket ID** → Update existing entry, don't duplicate
 2. **Same feature description** → Merge into existing
 3. **Same date + same services** → Likely same change, merge
 
-## Maintenance
+## Cross-Branch Awareness
 
-### Weekly Review
-- Review recent entries for accuracy
-- Promote important decisions to base MD files
-- Archive old entries (>6 months) if no longer relevant
+**Limitation:** Feature branches are isolated. Branch A doesn't see Branch B's learned knowledge.
+
+**This is by design:**
+- Git merge handles it naturally when branches merge to main
+- Keeps branches independent (no unexpected changes)
+- Conflict resolution is straightforward (keep both entries)
+
+**Best practice:**
+- Merge from main frequently to get latest learned knowledge
+- Before major features, pull main to check recent changes
+
+## Git Conflict Resolution
+
+YAML files use unique IDs per entry, so conflicts are rare. If they occur:
+
+### Typical Conflict
+```yaml
+features:
+<<<<<<< HEAD
+  - id: "feat-20240127-001"
+    description: "Added X to service-a"
+=======
+  - id: "feat-20240127-002"
+    description: "Added Y to service-b"
+>>>>>>> feature-branch
+```
+
+### Resolution: Keep Both
+```yaml
+features:
+  - id: "feat-20240127-001"
+    description: "Added X to service-a"
+  - id: "feat-20240127-002"
+    description: "Added Y to service-b"
+```
+
+### Rules
+1. **Different IDs** → Keep both entries (append)
+2. **Same ID, different content** → Keep the more recent (by date field)
+3. **Stats conflict** → Recalculate from entries count
+4. **When in doubt** → Keep both, deduplicate later
+
+### After Resolving
+```bash
+# Verify YAML is valid
+python -c "import yaml; yaml.safe_load(open('file.learned.yaml'))"
+
+# Commit resolution
+git add file.learned.yaml
+git commit -m "chore: resolve learned knowledge merge conflict"
+```
+
+## Maintenance & Pruning
+
+### Auto-Archive (6 months)
+
+Entries older than 6 months should be moved to `*.archived.yaml`:
+
+```
+knowledge/architecture/
+├── system-architecture.learned.yaml      # Active (< 6 months)
+├── system-architecture.archived.yaml     # Archived (> 6 months)
+```
+
+**Archive process (run monthly):**
+```bash
+# Check for old entries
+grep -l "date: \"$(date -d '6 months ago' +%Y)" knowledge/**/*.learned.yaml
+```
+
+### Promote to Base Knowledge
+
+Valuable learnings should be promoted to base MD files:
+
+**Candidates for promotion:**
+- Patterns used in 3+ features
+- Decisions referenced multiple times
+- Communications that became standard
+
+**Promotion workflow:**
+1. Identify valuable entry in `.learned.yaml`
+2. Add to appropriate `.md` file (rewrite in documentation style)
+3. Remove from `.learned.yaml`
+4. Commit: `docs: promote [topic] to base knowledge`
 
 ### Cleanup Criteria
-- Remove entries older than 1 year
-- Remove entries superseded by newer changes
-- Consolidate related entries
+
+**Archive if:**
+- Entry older than 6 months
+- Feature was later refactored/removed
+- Communication no longer exists
+
+**Delete if:**
+- Duplicate of another entry
+- Superseded by newer entry (same ticket)
+- Incorrect/invalid entry
+
+**Promote if:**
+- Referenced by 3+ subsequent features
+- Became a standard pattern
+- Important architectural decision
+
+### Archive File Format
+
+```yaml
+# system-architecture.archived.yaml
+version: 1
+archived_at: "2024-07-01"
+
+features:
+  - id: "feat-20240127-001"
+    date: "2024-01-27"
+    archived_reason: "older than 6 months"
+    # ... original entry fields
+```

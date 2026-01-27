@@ -29,8 +29,9 @@ what changed in the system, not what was observed during validation.
   - `service-boundaries` - Communications, contracts
   - `tech-stack` - New dependencies, version changes
 - `$LEARNING (json)`: The change to record
-- `$SOURCE_AGENT (string)`: Which agent completed the implementation
+- `$SOURCE_AGENT (string)`: Always "commit-manager" (single writer)
 - `$TICKET (string, optional)`: Ticket/issue ID for traceability
+- `$SOURCE_COMMITS (array, optional)`: Git commits that triggered this recording
 
 # Knowledge File Mapping
 
@@ -85,6 +86,13 @@ features:
         changes: ["what changed in this service"]
     breaking: false
     notes: "Any important context"
+    # Observability metadata (always include)
+    recorded_at: "2024-01-27T10:30:00Z"
+    recorded_by: "commit-manager"
+    source_commits:
+      - repo: "service-name"
+        sha: "abc1234"
+        message: "feat(scope): commit message"
 ```
 
 ### For Communications
