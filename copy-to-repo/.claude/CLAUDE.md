@@ -51,6 +51,54 @@ Prompt: |
 
 **After ANY user interaction during a workflow, you MUST re-spawn the appropriate orchestrator.**
 
+---
+
+## ⚠️ CRITICAL: Interactive Questions for Blockers
+
+**PROBLEM**: Subagents output text when they hit blockers, then stop silently. User has no interactive way to respond.
+
+**SOLUTION**: All orchestrating agents MUST use `AskUserQuestion` when they hit blockers requiring user decisions.
+
+### When to Use AskUserQuestion (not just output text)
+
+| Blocker Type | Example | Required Action |
+|--------------|---------|-----------------|
+| HTTP 4xx/5xx error | `400: Quiz must have questions` | Ask: create test data, skip, investigate, abort? |
+| Multiple valid approaches | "Could use polling or WebSocket" | Ask: which approach? |
+| Missing resource | "Entity doesn't exist" | Ask: create it, skip, abort? |
+| Validation failure | "Pattern check failed" | Ask: proceed anyway, fix, abort? |
+| Ambiguous requirement | "Not clear if X or Y" | Ask: clarify the requirement |
+| Can't determine root cause | "Multiple possible causes" | Ask: which to investigate? |
+
+### Required Behavior
+
+```markdown
+# WRONG - just outputs text and stops
+[feature-implementor] Error: Quiz must have at least one question.
+What should I do?
+
+# CORRECT - uses interactive question
+[feature-implementor] Error encountered. Asking user...
+AskUserQuestion:
+  questions:
+    - question: "API returned '400: Quiz must have questions'. How should I proceed?"
+      header: "API Error"
+      options:
+        - label: "Create test quiz data"
+          description: "I'll add sample questions so the endpoint works"
+        - label: "Skip this step"
+          description: "Continue, test manually later"
+        - label: "Show me the error"
+          description: "I'll show the full error for investigation"
+        - label: "Abort workflow"
+          description: "Stop the implementation"
+      multiSelect: false
+```
+
+### After User Responds
+
+The subagent continues with the user's decision. If the subagent already exited, the main conversation re-spawns it with context including the user's choice.
+
 ### How to Spawn Agents
 
 When a request matches the patterns above, use the Task tool:
