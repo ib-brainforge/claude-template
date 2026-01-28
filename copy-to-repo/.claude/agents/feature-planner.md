@@ -5,7 +5,7 @@ description: |
   Coordinates with architectural subagents to gather inputs, analyzes
   frontend/backend slice requirements, and produces validated implementation plans.
 tools: [Task, Read, Grep, Glob, Bash]
-model: sonnet
+model: opus
 ---
 
 # Purpose
@@ -15,26 +15,8 @@ and produce comprehensive implementation plans for full-stack features (frontend
 This is a reasoning agent that uses built-in tools (Read, Grep, Glob) for discovery and analysis,
 and delegates validation work to specialized agents via Task.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [feature-planner] id=fp-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet feature=\"$FEATURE_NAME\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [feature-planner] child=$CHILD_AGENT" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [feature-planner] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s phases=$PHASE_COUNT tasks=$TASK_COUNT" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

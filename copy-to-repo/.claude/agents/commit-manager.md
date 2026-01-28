@@ -18,26 +18,8 @@ conventional commits, and manages git operations.
 After committing, it analyzes what changed and records significant architectural learnings.
 This prevents concurrent write conflicts from parallel agents.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [commit-manager] id=cm-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet repos=\"$TARGET_REPOS\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [commit-manager] child=$CHILD_AGENT" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [commit-manager] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s repos=$REPOS_COUNT commits=$COMMIT_COUNT" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

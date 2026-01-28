@@ -22,24 +22,8 @@ Read: knowledge/validation/backend-patterns.md        → Backend conventions (i
 Read: knowledge/validation/frontend-patterns.md       → Frontend conventions (if frontend)
 ```
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [START] [bug-fixer] id=bf-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=1 model=sonnet bug=\"$BUG_DESCRIPTION\"" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-fixer] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s files=$FILES_CHANGED" >> .claude/agent-activity.log
-```
-
-Where:
-- `$STATUS` = PASS (fixed), WARN (needs review), or FAIL
-- `$EST_TOKENS` = (number of tool uses × 500)
-- `$FILES_CHANGED` = number of files modified
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

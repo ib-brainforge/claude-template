@@ -15,26 +15,8 @@ and system constraints. Ensure plans are architecturally sound before implementa
 This is a reasoning agent that uses built-in tools (Read, Grep, Glob) for analysis and
 delegates validation work to specialized validator agents via Task.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [plan-validator] id=pv-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet feature=\"$FEATURE_NAME\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [plan-validator] child=$CHILD_AGENT" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [plan-validator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s dimensions=$DIMENSIONS_CHECKED" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

@@ -15,6 +15,8 @@
 | "commit changes" | `commit-manager` | `/commit` |
 | "update packages" | `package-release` skill | `/update-packages` |
 | "knowledge is wrong" / "we actually use X" / "fix knowledge" | `knowledge-investigator` | `/update-knowledge "description"` |
+| "create/update grafana dashboard" | `grafana-dashboard-manager` | `/update-dashboard SERVICE` |
+| "write docs" / "create documentation" / "document..." | `confluence-writer` | `/write-docs "topic"` |
 
 ---
 
@@ -173,7 +175,10 @@ When spawning agents, prefix your output:
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
 | `/agent-stats` | Show agent telemetry dashboard (tokens, call tree, warnings) |
+| `/agent-trace` | Show full execution tree of last workflow (validators, git, timing) |
 | `/update-knowledge "misconception"` | Investigate & correct wrong knowledge (fixes *.md files) |
+| `/update-dashboard SERVICE` | Create/update Grafana dashboard for service observability |
+| `/write-docs "topic"` | Write technical/business documentation to Confluence |
 
 ## Agent System
 
@@ -186,15 +191,21 @@ When spawning agents, prefix your output:
 - `commit-manager` - Commits + records learnings (SINGLE WRITER for learned.yaml)
 - `master-architect` - Architectural oversight
 - `knowledge-investigator` - Investigates & corrects base knowledge (*.md files)
+- `grafana-dashboard-manager` - Creates/updates Grafana dashboards for observability
+- `confluence-writer` - Creates technical/business documentation on Confluence
+- `git-workflow-manager` - **HARD GATE** for GitFlow (develop → feature branch → PR)
 
 ### Worker Agents (do specific tasks)
 - `bug-fixer` - Applies individual bug fixes (spawned by orchestrators)
 - `plan-analyst` - Analyzes from specific perspective (spawned by planning-council)
+- `backend-implementor` - Implements C#/.NET code autonomously (spawned by feature-implementor)
+- `frontend-implementor` - Implements React/TS code autonomously (spawned by feature-implementor)
+- `core-implementor` - Implements shared package changes (spawned by feature-implementor)
 - `backend-pattern-validator` - Validates C#/.NET patterns
 - `frontend-pattern-validator` - Validates React/TS patterns
 - `knowledge-updater` - Writes to learned YAML files (spawned by commit-manager)
 
-### Workflow Pattern
+### Workflow Pattern (Autonomous & Parallel)
 
 ```
 User Request
@@ -205,12 +216,61 @@ User Request
     ▼
 Task: spawn [orchestrator-agent]
     │
-    ├──► [orchestrator] loads knowledge
-    ├──► [orchestrator] spawns worker agents
-    ├──► [workers] do actual work
-    ├──► [orchestrator] validates results
-    └──► [orchestrator] returns report
+    ├──► [git-workflow-manager] HARD GATE: setup feature branch
+    │
+    ├──► [feature-planner] analyze & identify work streams
+    │
+    ├──► PARALLEL IMPLEMENTATION ←── KEY: Multiple implementors simultaneously
+    │    ┌────────────────┬────────────────┬────────────────┐
+    │    │ backend-impl   │ frontend-impl  │ core-impl      │
+    │    │ (.cs files)    │ (.tsx files)   │ (packages)     │
+    │    └───────┬────────┴───────┬────────┴───────┬────────┘
+    │            └────────────────┴────────────────┘
+    │                         WAIT FOR ALL
+    │
+    ├──► PARALLEL VALIDATION
+    │    ┌────────────────────┬────────────────────┐
+    │    │ backend-validator  │ frontend-validator │
+    │    └────────────────────┴────────────────────┘
+    │
+    ├──► [commit-manager] commits all changes
+    │
+    ├──► [git-workflow-manager] HARD GATE: create PR to develop
+    │
+    └──► Returns report with PR link
+
+NO STOPPING BETWEEN STEPS - Fully autonomous execution
+Only stops for: security issues, breaking changes, unresolvable conflicts
 ```
+
+## ⚠️ GitFlow - HARD GATE
+
+**ALL code changes MUST go through this workflow:**
+
+```
+main (production)
+  │
+  └── develop (latest development)
+        │
+        ├── feature/BF-123-description
+        ├── fix/BF-456-bug-description
+        └── ...
+```
+
+**Rules:**
+1. **Never commit directly to develop or main**
+2. **Always create feature/fix branch from latest develop**
+3. **Always create PR back to develop**
+4. **All orchestrators call `git-workflow-manager` at START and END**
+
+**Branch naming:**
+- Features: `feature/[ticket]-[description]` or `feature/[description]`
+- Fixes: `fix/[ticket]-[description]` or `fix/[description]`
+
+**The `git-workflow-manager` agent enforces this and is called by:**
+- `feature-implementor` (Step 0 and Step 6)
+- `bug-fix-orchestrator` (Step 0 and Step 4)
+- `bug-triage` (Step 0 and Step 8)
 
 ## Knowledge Files
 

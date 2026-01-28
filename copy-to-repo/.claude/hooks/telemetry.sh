@@ -47,6 +47,9 @@ case "$EVENT_TYPE" in
             AGENT_NAME=$(echo "$TOOL_INPUT" | grep -o 'spawn[[:space:]]*[a-zA-Z-]*' | head -1 | sed 's/spawn *//' || echo "unknown-agent")
             AGENT_ID="agent-$(date +%s%N | cut -c1-13)"
             echo "[$TIMESTAMP] [START] [$AGENT_NAME] id=$AGENT_ID tool_use_id=$TOOL_USE_ID event=PreToolUse" >> "$LOG_FILE"
+        else
+            # Log other tool uses for debugging (optional - can be disabled)
+            : # echo "[$TIMESTAMP] [TOOL] [$TOOL_NAME] tool_use_id=$TOOL_USE_ID" >> "$LOG_FILE"
         fi
         ;;
 

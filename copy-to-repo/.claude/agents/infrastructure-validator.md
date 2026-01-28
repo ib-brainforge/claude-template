@@ -14,21 +14,8 @@ Validates infrastructure code against security, reliability, and consistency
 standards. This is a reasoning agent that uses built-in tools for analysis.
 Bash is used only for running native IaC validation commands (terraform validate, etc).
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [infrastructure-validator] id=iv-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet path=\"$INFRA_PATH\"" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [infrastructure-validator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s iac=$IAC_TOOL" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

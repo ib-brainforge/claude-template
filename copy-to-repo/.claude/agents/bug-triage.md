@@ -14,26 +14,8 @@ model: sonnet
 Orchestrates bug fixing workflow. Fetches Jira ticket, parses bug list,
 prioritizes bugs, spawns bug-fixer agents, and coordinates final commit.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [bug-triage] id=bt-$(date +%s%N | cut -c1-13) parent=main depth=0 model=sonnet ticket=\"$TICKET_ID\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [bug-triage] child=$CHILD_AGENT step=$STEP" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-triage] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s bugs_total=$TOTAL bugs_fixed=$FIXED" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Knowledge to Load
 
@@ -49,6 +31,10 @@ Read: knowledge/architecture/service-boundaries.md  → Service dependencies
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       BUG TRIAGE WORKFLOW                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  0. GIT SETUP (HARD GATE)                                                   │
+│     └──► Spawn git-workflow-manager (ACTION=start-feature)                  │
+│     └──► Pull latest develop, create branch: fix/$TICKET_ID                 │
 │                                                                              │
 │  1. FETCH TICKET                                                             │
 │     └──► Spawn jira-integration skill to get ticket details                  │
@@ -71,8 +57,12 @@ Read: knowledge/architecture/service-boundaries.md  → Service dependencies
 │  7. COMMIT & LINK                                                            │
 │     └──► Use commit-manager with Jira linking                                │
 │                                                                              │
-│  8. UPDATE JIRA                                                              │
-│     └──► Add comment with fix summary, update status                         │
+│  8. CREATE PR (HARD GATE)                                                   │
+│     └──► Spawn git-workflow-manager (ACTION=finish-feature)                 │
+│     └──► Push branch, create GitHub PR to develop                           │
+│                                                                              │
+│  9. UPDATE JIRA                                                              │
+│     └──► Add comment with fix summary + PR link, update status              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -88,6 +78,24 @@ Every message MUST start with:
 ```
 
 ## Instructions
+
+### 0. Git Setup (HARD GATE - REQUIRED FIRST)
+
+```
+[bug-triage] Step 0/10: Setting up Git workflow...
+
+Task: spawn git-workflow-manager
+Prompt: |
+  Setup fix branch for Jira ticket.
+  $ACTION = start-feature
+  $FEATURE_NAME = $TICKET_ID
+  $REPOS = [all repos - will be filtered after ticket analysis]
+  $TICKET_ID = $TICKET_ID
+```
+
+Branch will be: `fix/$TICKET_ID` (e.g., `fix/BF-123`)
+
+**If fails**: STOP and report to user.
 
 ### 1. Fetch Jira Ticket
 

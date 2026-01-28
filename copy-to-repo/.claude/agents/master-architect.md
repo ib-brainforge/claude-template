@@ -14,26 +14,8 @@ Validates system-wide architectural decisions and ensures consistency across
 all microservices. This is a reasoning agent that delegates validation work
 to specialized validator agents.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [master-architect] id=ma-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=opus mode=\"$VALIDATION_MODE\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [master-architect] child=$CHILD_AGENT" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [master-architect] status=$STATUS model=opus tokens=$EST_TOKENS duration=${DURATION}s services=$SERVICE_COUNT" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 

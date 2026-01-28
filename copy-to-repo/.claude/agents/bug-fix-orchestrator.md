@@ -21,26 +21,8 @@ Read: knowledge/architecture/system-architecture.md → Service map
 Read: knowledge/architecture/service-boundaries.md  → Service dependencies
 ```
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [bug-fix-orchestrator] id=bfo-$(date +%s%N | cut -c1-13) parent=main depth=0 model=sonnet bug=\"$BUG_DESCRIPTION\"" >> .claude/agent-activity.log
-```
-
-**When spawning each child agent, log it:**
-```bash
-Bash: echo "[$(date -Iseconds)] [SPAWN] [bug-fix-orchestrator] child=$CHILD_AGENT step=$STEP" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [bug-fix-orchestrator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s children=$CHILDREN" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 
@@ -65,6 +47,11 @@ $REPOS_ROOT (path): Root directory containing repositories
 │                    BUG FIX ORCHESTRATOR WORKFLOW                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
+│  STEP 0: GIT SETUP (HARD GATE)                                              │
+│     └──► Spawn git-workflow-manager (ACTION=start-feature)                  │
+│     └──► Pull latest develop, create fix branch                             │
+│     └──► Branch: fix/[description] or fix/[ticket-id]-[description]         │
+│                                                                              │
 │  STEP 1: FIX THE BUG                                                         │
 │     └──► Spawn bug-fixer agent                                               │
 │     └──► Capture: files_modified, status, business summary                   │
@@ -80,14 +67,39 @@ $REPOS_ROOT (path): Root directory containing repositories
 │     └──► Spawn commit-manager                                                │
 │     └──► Include business description in commit                              │
 │                                                                              │
-│  STEP 4: REPORT                                                              │
-│     └──► Generate business-focused summary table                             │
+│  STEP 4: CREATE PR (HARD GATE)                                              │
+│     └──► Spawn git-workflow-manager (ACTION=finish-feature)                 │
+│     └──► Push fix branch, create GitHub PR to develop                       │
+│                                                                              │
+│  STEP 5: REPORT                                                              │
+│     └──► Generate business-focused summary table with PR link               │
 │     └──► Return complete report                                              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Instructions
+
+### Step 0: Git Setup (HARD GATE - REQUIRED FIRST)
+
+```
+[bug-fix-orchestrator] Step 0/5: Setting up Git workflow...
+
+Task: spawn git-workflow-manager
+Prompt: |
+  Setup fix branch for bug fix.
+  $ACTION = start-feature
+  $FEATURE_NAME = fix-[sanitized-bug-description]
+  $REPOS = [repos likely to be affected based on bug description]
+```
+
+**This MUST succeed before any code changes.**
+
+Branch naming for fixes:
+- `fix/memory-leak-tenant-service`
+- `fix/BF-123-null-reference`
+
+**If fails**: STOP and report to user.
 
 ### Step 1: Spawn bug-fixer
 
@@ -141,6 +153,7 @@ Prompt: |
   Validate recent code changes for pattern compliance.
   Files changed: $FILES_MODIFIED
   $REPOS_ROOT = $REPOS_ROOT
+  $PARENT_ID = [bug-fix-orchestrator ID]
 
   Check:
   - CQRS pattern compliance
@@ -155,6 +168,7 @@ Prompt: |
   Validate recent code changes for pattern compliance.
   Files changed: $FILES_MODIFIED
   $REPOS_ROOT = $REPOS_ROOT
+  $PARENT_ID = [bug-fix-orchestrator ID]
 ```
 
 **Capture validation result:**
@@ -186,10 +200,37 @@ Prompt: |
 - `$COMMIT_SHA` = commit hash
 - `$COMMIT_MESSAGE` = full commit message
 
-### Step 4: Generate Report
+### Step 4: Create PR (HARD GATE)
 
 ```
-[bug-fix-orchestrator] Step 4/4: Complete ✓
+[bug-fix-orchestrator] Step 4/5: Creating GitHub PR...
+
+Task: spawn git-workflow-manager
+Prompt: |
+  Finish fix and create PR.
+  $ACTION = finish-feature
+  $FEATURE_NAME = [same as step 0]
+  $REPOS = [repos with commits]
+  $PR_TITLE = "fix([scope]): $BUSINESS_RESOLUTION"
+  $PR_BODY = |
+    ## Bug Fix
+
+    | Issue | Resolution |
+    |-------|------------|
+    | $BUSINESS_ISSUE | $BUSINESS_RESOLUTION |
+
+    ## Changes
+    - Files modified: $FILES_MODIFIED
+```
+
+**Capture from git-workflow-manager:**
+- `$PR_URL` = GitHub PR URL
+- `$PR_NUMBER` = PR number
+
+### Step 5: Generate Report
+
+```
+[bug-fix-orchestrator] Step 5/5: Complete ✓
 ```
 
 Return final report to user.
@@ -242,9 +283,18 @@ After completion, display to user:
 |-------|------------|
 | $BUSINESS_ISSUE | $BUSINESS_RESOLUTION |
 
+**Branch:** fix/[description]
 **Files changed:** $FILES_MODIFIED
 **Commit:** $COMMIT_SHA
 **Validation:** $VALIDATION_STATUS
+
+### Pull Request
+🔗 [$PR_URL]($PR_URL)
+
+**Next steps:**
+1. Review the PR
+2. Request team review if needed
+3. Merge to develop after approval
 ```
 
 ## Error Handling

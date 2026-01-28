@@ -17,21 +17,8 @@ and security practices. This is a reasoning agent that uses built-in tools
 **IMPORTANT**: All framework-specific patterns, grep patterns, and validation rules
 must be loaded from knowledge files. Do not hardcode any technology-specific patterns.
 
-## ⚠️ MANDATORY: First and Last Actions
-
-**YOUR VERY FIRST ACTION must be this telemetry log:**
-```bash
-Bash: |
-  mkdir -p .claude
-  echo "[$(date -Iseconds)] [START] [backend-pattern-validator] id=bpv-$(date +%s%N | cut -c1-13) parent=$PARENT_ID depth=$DEPTH model=sonnet service=\"$SERVICE_PATH\"" >> .claude/agent-activity.log
-```
-
-**YOUR VERY LAST ACTION must be this telemetry log:**
-```bash
-Bash: echo "[$(date -Iseconds)] [COMPLETE] [backend-pattern-validator] status=$STATUS model=sonnet tokens=$EST_TOKENS duration=${DURATION}s issues=$ISSUE_COUNT" >> .claude/agent-activity.log
-```
-
-**DO NOT SKIP THESE LOGS.**
+## Telemetry
+Automatic via Claude Code hooks - no manual logging required.
 
 ## Output Prefix
 
