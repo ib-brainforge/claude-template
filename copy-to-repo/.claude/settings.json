@@ -1,0 +1,54 @@
+{
+  "$schema": "https://code.claude.com/schemas/settings.json",
+  "_comment": "Claude Code hooks for automatic agent telemetry - no manual logging needed in agents",
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=PreToolUse .claude/hooks/telemetry.sh"
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=PostToolUse .claude/hooks/telemetry.sh"
+          }
+        ]
+      }
+    ],
+
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=SubagentStop .claude/hooks/telemetry.sh"
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CLAUDE_HOOK_EVENT=Stop .claude/hooks/telemetry.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
