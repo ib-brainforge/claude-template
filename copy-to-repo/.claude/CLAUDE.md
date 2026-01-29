@@ -52,6 +52,58 @@ Prompt: |
 
 **After ANY user interaction during a workflow, you MUST re-spawn the appropriate orchestrator.**
 
+---
+
+## ⚠️ CRITICAL: Interactive Questions for Blockers
+
+**PROBLEM**: Subagents output text when they hit blockers, then stop silently. User has no interactive way to respond.
+
+**SOLUTION**: All orchestrating agents MUST use `AskUserQuestion` when they hit blockers requiring user decisions.
+
+### When to Use AskUserQuestion (not just output text)
+
+| Blocker Type | Example | Required Action |
+|--------------|---------|-----------------|
+| HTTP 4xx/5xx error | `400: Quiz must have questions` | Ask: create test data, skip, investigate, abort? |
+| Multiple valid approaches | "Could use polling or WebSocket" | Ask: which approach? |
+| Missing resource | "Entity doesn't exist" | Ask: create it, skip, abort? |
+| Validation failure | "Pattern check failed" | Ask: proceed anyway, fix, abort? |
+| Ambiguous requirement | "Not clear if X or Y" | Ask: clarify the requirement |
+| Can't determine root cause | "Multiple possible causes" | Ask: which to investigate? |
+| Build/test failure | "Build failed after 3 attempts" | Ask: show error, skip, abort? |
+| Merge conflict | "Conflict with develop" | Ask: show conflicts, abort, reset? |
+
+### Required Behavior
+
+```markdown
+# WRONG - just outputs text and stops
+[feature-implementor] Error: Quiz must have at least one question.
+What should I do?
+
+# CORRECT - uses interactive question
+[feature-implementor] Error encountered. Asking user...
+AskUserQuestion:
+  questions:
+    - question: "API returned '400: Quiz must have questions'. How should I proceed?"
+      header: "API Error"
+      options:
+        - label: "Create test quiz data"
+          description: "I'll add sample questions so the endpoint works"
+        - label: "Skip this step"
+          description: "Continue, test manually later"
+        - label: "Show me the error"
+          description: "I'll show the full error for investigation"
+        - label: "Abort workflow"
+          description: "Stop the implementation"
+      multiSelect: false
+```
+
+### After User Responds
+
+The subagent continues with the user's decision. If the subagent already exited, the main conversation re-spawns it with context including the user's choice.
+
+---
+
 ### How to Spawn Agents
 
 When a request matches the patterns above, use the Task tool:
@@ -197,6 +249,8 @@ When spawning agents, prefix your output:
 | `/update-dashboard SERVICE` | Create/update Grafana dashboard for service observability |
 | `/write-docs "topic"` | Write technical/business documentation to Confluence |
 | `/implement-infra "description"` | Implement infrastructure changes (Kubernetes, GitOps, IaC) |
+| `/git-sync` | Sync current feature branch with latest develop (prevents merge conflicts) |
+| `/git-cleanup` | Clean up after merged PR (switch to develop, delete old feature branch) |
 
 ## Agent System
 
@@ -262,6 +316,20 @@ NO STOPPING BETWEEN STEPS - Fully autonomous execution
 Only stops for: security issues, breaking changes, unresolvable conflicts
 ```
 
+## ⚠️ Build Verification - HARD GATE
+
+**ALL code changes MUST pass build and tests before commit.**
+
+Each implementor/fixer runs build & test after their work:
+- **Backend**: `dotnet build && dotnet test`
+- **Frontend**: `pnpm build && pnpm test`
+
+The orchestrator runs a final verification before commit step.
+
+If build fails after 3 attempts, use `AskUserQuestion` to ask user how to proceed.
+
+---
+
 ## ⚠️ GitFlow - HARD GATE
 
 **ALL code changes MUST go through this workflow:**
@@ -279,17 +347,36 @@ main (production)
 **Rules:**
 1. **Never commit directly to develop or main**
 2. **Always create feature/fix branch from latest develop**
-3. **Always create PR back to develop**
-4. **All orchestrators call `git-workflow-manager` at START and END**
+3. **Always sync with develop before finishing** (prevents merge conflicts)
+4. **Always create PR back to develop**
+5. **All orchestrators call `git-workflow-manager` at START and END**
 
 **Branch naming:**
 - Features: `feature/[ticket]-[description]` or `feature/[description]`
 - Fixes: `fix/[ticket]-[description]` or `fix/[description]`
 
 **The `git-workflow-manager` agent enforces this and is called by:**
-- `feature-implementor` (Step 0 and Step 6)
-- `bug-fix-orchestrator` (Step 0 and Step 4)
-- `bug-triage` (Step 0 and Step 8)
+- `feature-implementor` (Step 0 and Step 7)
+- `bug-fix-orchestrator` (Step 0 and Step 5)
+- `bug-triage` (Step 0 and Step 10)
+
+**Git Workflow Lifecycle:**
+```
+1. START: git-workflow-manager (start-feature)
+   └── Pull latest develop, create/checkout feature branch
+   └── If branch exists: merge latest develop into it
+
+2. WORK: Implement, build, test, commit
+
+3. SYNC (optional): /git-sync
+   └── Merge latest develop into feature branch mid-work
+
+4. FINISH: git-workflow-manager (finish-feature)
+   └── Sync with develop, push, create PR
+
+5. AFTER MERGE: /git-cleanup
+   └── Switch to develop, pull, delete old feature branch
+```
 
 ## Knowledge Files
 
