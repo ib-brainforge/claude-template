@@ -3,8 +3,9 @@ name: git-workflow-manager
 description: |
   Manages GitFlow workflow for all code changes. Ensures all work happens on
   feature branches created from latest develop, and creates GitHub PRs back to develop.
+  Handles sync with develop to prevent merge conflicts.
   This is a HARD GATE - no code changes without proper branch workflow.
-tools: [Bash, Read]
+tools: [Bash, Read, AskUserQuestion]
 model: sonnet
 ---
 
@@ -35,7 +36,7 @@ Every message MUST start with:
 
 # Variables
 
-- `$ACTION (string)`: start-feature | finish-feature | check-status
+- `$ACTION (string)`: start-feature | finish-feature | sync-develop | cleanup | check-status
 - `$FEATURE_NAME (string)`: Feature identifier (e.g., "BF-123-add-lease-date", "inline-edit")
 - `$REPOS (array)`: List of repository paths to manage
 - `$TICKET_ID (string, optional)`: Jira ticket for branch naming
@@ -71,47 +72,92 @@ Called BEFORE any code changes. Sets up the workspace.
 Bash: |
   cd $REPO_PATH
 
-  # Ensure we're on develop
-  git checkout develop
-
-  # Pull latest
-  git pull origin develop
-
-  # Check for uncommitted changes
+  # Check for uncommitted changes FIRST
   if [ -n "$(git status --porcelain)" ]; then
     echo "ERROR: Uncommitted changes in $REPO_PATH"
     git status --short
     exit 1
   fi
+
+  # Fetch latest from origin
+  git fetch origin
+
+  # Switch to develop and pull latest
+  git checkout develop
+  git pull origin develop
 ```
 
-### 2. Create Feature Branch
-
-Branch naming convention:
-- With ticket: `feature/$TICKET_ID-$FEATURE_NAME` (e.g., `feature/BF-123-add-lease-date`)
-- Without ticket: `feature/$FEATURE_NAME` (e.g., `feature/inline-edit`)
+### 2. Check if Feature Branch Already Exists
 
 ```bash
 Bash: |
   cd $REPO_PATH
-
-  # Create and checkout feature branch
   BRANCH_NAME="feature/$FEATURE_NAME"
-  git checkout -b "$BRANCH_NAME"
 
-  echo "Created branch: $BRANCH_NAME"
+  # Check if branch exists locally or remotely
+  if git show-ref --verify --quiet refs/heads/"$BRANCH_NAME"; then
+    echo "BRANCH_EXISTS_LOCAL"
+  elif git show-ref --verify --quiet refs/remotes/origin/"$BRANCH_NAME"; then
+    echo "BRANCH_EXISTS_REMOTE"
+  else
+    echo "BRANCH_NEW"
+  fi
 ```
 
-### 3. Verify Setup
+### 3. Handle Existing vs New Branch
+
+**If BRANCH_NEW:**
+```bash
+Bash: |
+  cd $REPO_PATH
+  BRANCH_NAME="feature/$FEATURE_NAME"
+
+  # Create and checkout new feature branch from develop
+  git checkout -b "$BRANCH_NAME"
+  echo "Created new branch: $BRANCH_NAME from develop"
+```
+
+**If BRANCH_EXISTS_LOCAL or BRANCH_EXISTS_REMOTE:**
+```bash
+Bash: |
+  cd $REPO_PATH
+  BRANCH_NAME="feature/$FEATURE_NAME"
+
+  # Checkout existing branch
+  git checkout "$BRANCH_NAME"
+
+  # Pull latest if remote exists
+  git pull origin "$BRANCH_NAME" 2>/dev/null || true
+
+  # CRITICAL: Merge latest develop to prevent conflicts
+  echo "Syncing with latest develop..."
+  git fetch origin develop
+  git merge origin/develop --no-edit
+
+  if [ $? -ne 0 ]; then
+    echo "MERGE_CONFLICT"
+    exit 1
+  fi
+
+  echo "Branch synced with develop ✓"
+```
+
+**If MERGE_CONFLICT:** Use `AskUserQuestion` to ask user:
+- "Abort and let me resolve manually"
+- "Show me the conflicts"
+- "Reset branch to develop (loses work)"
+
+### 4. Verify Setup
 
 ```bash
 Bash: |
   cd $REPO_PATH
-  git branch --show-current
-  git log --oneline -1
+  echo "Branch: $(git branch --show-current)"
+  echo "Last commit: $(git log --oneline -1)"
+  echo "Commits ahead of develop: $(git rev-list --count develop..HEAD)"
 ```
 
-### 4. Report Ready
+### 5. Report Ready
 
 ```json
 {
@@ -121,7 +167,8 @@ Bash: |
     {
       "path": "asset-backend",
       "branch": "feature/BF-123-add-lease-date",
-      "base_commit": "abc1234"
+      "base_commit": "abc1234",
+      "synced_with_develop": true
     }
   ]
 }
@@ -131,7 +178,7 @@ Bash: |
 
 ## ACTION: finish-feature
 
-Called AFTER code changes are complete. Creates PRs.
+Called AFTER code changes are complete. Syncs with develop and creates PRs.
 
 ### 1. Verify All Changes Committed
 
@@ -147,7 +194,42 @@ Bash: |
   fi
 ```
 
-### 2. Push Feature Branch
+### 2. Sync with Latest Develop (CRITICAL)
+
+**Before pushing, ensure branch is up-to-date with develop to prevent merge conflicts in PR:**
+
+```bash
+Bash: |
+  cd $REPO_PATH
+
+  # Fetch latest develop
+  git fetch origin develop
+
+  # Check if we're behind develop
+  BEHIND=$(git rev-list --count HEAD..origin/develop)
+
+  if [ "$BEHIND" -gt 0 ]; then
+    echo "Branch is $BEHIND commits behind develop. Merging..."
+
+    git merge origin/develop --no-edit
+
+    if [ $? -ne 0 ]; then
+      echo "MERGE_CONFLICT"
+      exit 1
+    fi
+
+    echo "Merged latest develop ✓"
+  else
+    echo "Branch is up-to-date with develop ✓"
+  fi
+```
+
+**If MERGE_CONFLICT:** Use `AskUserQuestion` to ask user:
+- "Show me the conflicts"
+- "Abort finish and let me resolve manually"
+- "Try rebase instead of merge"
+
+### 3. Push Feature Branch
 
 ```bash
 Bash: |
@@ -155,11 +237,11 @@ Bash: |
 
   BRANCH=$(git branch --show-current)
 
-  # Push to origin
+  # Push to origin (force-with-lease if needed after merge)
   git push -u origin "$BRANCH"
 ```
 
-### 3. Create GitHub PR
+### 4. Create GitHub PR
 
 ```bash
 Bash: |
@@ -213,6 +295,117 @@ Bash: |
 
 ---
 
+## ACTION: sync-develop
+
+Sync current feature branch with latest develop. Use this mid-workflow if develop has changed.
+
+### 1. Fetch and Merge Develop
+
+```bash
+Bash: |
+  cd $REPO_PATH
+
+  BRANCH=$(git branch --show-current)
+
+  # Ensure we're on a feature branch
+  if [[ ! "$BRANCH" =~ ^feature/ ]] && [[ ! "$BRANCH" =~ ^fix/ ]]; then
+    echo "ERROR: Not on a feature/fix branch. Current: $BRANCH"
+    exit 1
+  fi
+
+  # Check for uncommitted changes
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "ERROR: Uncommitted changes - commit or stash first"
+    git status --short
+    exit 1
+  fi
+
+  # Fetch and merge develop
+  git fetch origin develop
+  git merge origin/develop --no-edit
+
+  if [ $? -ne 0 ]; then
+    echo "MERGE_CONFLICT"
+    git merge --abort
+    exit 1
+  fi
+
+  echo "Branch synced with develop ✓"
+```
+
+### 2. Report Status
+
+```json
+{
+  "action": "sync-develop",
+  "status": "SYNCED",
+  "branch": "feature/BF-123-add-lease-date",
+  "commits_merged": 5
+}
+```
+
+---
+
+## ACTION: cleanup
+
+Called AFTER PR is merged. Cleans up local branches and returns to develop.
+
+### 1. Switch to Develop and Pull Latest
+
+```bash
+Bash: |
+  cd $REPO_PATH
+
+  # Get current branch before cleanup
+  CURRENT_BRANCH=$(git branch --show-current)
+
+  # Switch to develop
+  git checkout develop
+
+  # Pull latest (includes merged PR)
+  git pull origin develop
+
+  echo "Switched to develop and pulled latest ✓"
+```
+
+### 2. Delete Local Feature Branch
+
+```bash
+Bash: |
+  cd $REPO_PATH
+
+  # Delete the old feature branch locally
+  if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "develop" ]; then
+    git branch -d "$CURRENT_BRANCH" 2>/dev/null || git branch -D "$CURRENT_BRANCH"
+    echo "Deleted local branch: $CURRENT_BRANCH"
+  fi
+```
+
+### 3. Prune Remote Tracking Branches
+
+```bash
+Bash: |
+  cd $REPO_PATH
+
+  # Remove stale remote tracking branches
+  git fetch --prune
+
+  echo "Pruned stale remote branches ✓"
+```
+
+### 4. Report Cleanup
+
+```json
+{
+  "action": "cleanup",
+  "status": "CLEANED",
+  "deleted_branch": "feature/BF-123-add-lease-date",
+  "current_branch": "develop"
+}
+```
+
+---
+
 ## ACTION: check-status
 
 Check current git status across repos.
@@ -226,8 +419,17 @@ Bash: |
   echo "Status:"
   git status --short
   echo "Last commit: $(git log --oneline -1)"
-  echo "Behind/ahead develop:"
-  git rev-list --left-right --count develop...HEAD 2>/dev/null || echo "N/A"
+
+  # Check ahead/behind develop
+  git fetch origin develop 2>/dev/null
+  AHEAD=$(git rev-list --count origin/develop..HEAD 2>/dev/null || echo "?")
+  BEHIND=$(git rev-list --count HEAD..origin/develop 2>/dev/null || echo "?")
+  echo "Ahead of develop: $AHEAD commits"
+  echo "Behind develop: $BEHIND commits"
+
+  if [ "$BEHIND" -gt 0 ]; then
+    echo "⚠️  WARNING: Branch is behind develop - consider syncing"
+  fi
 ```
 
 # Integration with Other Agents
@@ -236,30 +438,74 @@ Bash: |
 - `feature-implementor` - At start and end of feature implementation
 - `bug-fix-orchestrator` - At start and end of bug fix
 - `bug-triage` - At start and end of multi-bug fix
+- User directly - For sync-develop and cleanup
 
 ## Workflow Integration
 
+### Full Feature Lifecycle
+
 ```
-User: "/implement-feature add lease date"
-    │
-    ▼
-[feature-implementor]
-    │
-    ├──► [1] Spawn git-workflow-manager (ACTION=start-feature)
-    │         └── Pull develop, create feature branch
-    │
-    ├──► [2] Plan feature
-    │
-    ├──► [3] Implement changes
-    │
-    ├──► [4] Validate
-    │
-    ├──► [5] Spawn commit-manager
-    │         └── Commit changes to feature branch
-    │
-    └──► [6] Spawn git-workflow-manager (ACTION=finish-feature)
-              └── Push branch, create PR to develop
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE GIT WORKFLOW LIFECYCLE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PHASE 1: START FEATURE                                                      │
+│  ─────────────────────                                                       │
+│  User: "/implement-feature add lease date"                                   │
+│      │                                                                       │
+│      ▼                                                                       │
+│  [git-workflow-manager] ACTION=start-feature                                 │
+│      ├── Fetch origin                                                        │
+│      ├── Checkout develop, pull latest                                       │
+│      ├── Check if feature branch exists                                      │
+│      │   ├── NEW: Create branch from develop                                 │
+│      │   └── EXISTS: Checkout and merge latest develop                       │
+│      └── Ready for work ✓                                                    │
+│                                                                              │
+│  PHASE 2: DO WORK                                                            │
+│  ───────────────                                                             │
+│  [feature-implementor] / [bug-fixer] / etc.                                  │
+│      ├── Make code changes                                                   │
+│      ├── Build & test                                                        │
+│      └── Commit changes                                                      │
+│                                                                              │
+│  PHASE 2.5: SYNC (if long-running work)                                      │
+│  ──────────────────────────────────────                                      │
+│  [git-workflow-manager] ACTION=sync-develop                                  │
+│      ├── Fetch origin develop                                                │
+│      ├── Merge develop into feature branch                                   │
+│      └── Resolve conflicts if any                                            │
+│                                                                              │
+│  PHASE 3: FINISH FEATURE                                                     │
+│  ─────────────────────                                                       │
+│  [git-workflow-manager] ACTION=finish-feature                                │
+│      ├── Verify all committed                                                │
+│      ├── Sync with latest develop (merge)                                    │
+│      ├── Push feature branch                                                 │
+│      ├── Create PR to develop                                                │
+│      └── PR URL returned ✓                                                   │
+│                                                                              │
+│  PHASE 4: AFTER PR MERGED (manual or next session)                           │
+│  ─────────────────────────────────────────────────                           │
+│  [git-workflow-manager] ACTION=cleanup                                       │
+│      ├── Checkout develop                                                    │
+│      ├── Pull latest (includes merged changes)                               │
+│      ├── Delete local feature branch                                         │
+│      ├── Prune stale remote branches                                         │
+│      └── Ready for next feature ✓                                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### When to Use Each Action
+
+| Action | When | Automatic? |
+|--------|------|------------|
+| `start-feature` | Beginning of any code change workflow | Yes (by orchestrators) |
+| `sync-develop` | During long-running work, if develop changed | Manual or mid-workflow |
+| `finish-feature` | After code is committed, ready for PR | Yes (by orchestrators) |
+| `cleanup` | After PR is merged | Manual (user or next session) |
+| `check-status` | Anytime, to see current state | Manual |
 
 # Error Handling
 

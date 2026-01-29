@@ -17,6 +17,7 @@
 | "knowledge is wrong" / "we actually use X" / "fix knowledge" | `knowledge-investigator` | `/update-knowledge "description"` |
 | "create/update grafana dashboard" | `grafana-dashboard-manager` | `/update-dashboard SERVICE` |
 | "write docs" / "create documentation" / "document..." | `confluence-writer` | `/write-docs "topic"` |
+| "implement infra" / "add kubernetes" / "deploy service" / "infrastructure change" | `infrastructure-implementor` | `/implement-infra "description"` |
 
 ---
 
@@ -50,54 +51,6 @@ Prompt: |
 ```
 
 **After ANY user interaction during a workflow, you MUST re-spawn the appropriate orchestrator.**
-
----
-
-## ⚠️ CRITICAL: Interactive Questions for Blockers
-
-**PROBLEM**: Subagents output text when they hit blockers, then stop silently. User has no interactive way to respond.
-
-**SOLUTION**: All orchestrating agents MUST use `AskUserQuestion` when they hit blockers requiring user decisions.
-
-### When to Use AskUserQuestion (not just output text)
-
-| Blocker Type | Example | Required Action |
-|--------------|---------|-----------------|
-| HTTP 4xx/5xx error | `400: Quiz must have questions` | Ask: create test data, skip, investigate, abort? |
-| Multiple valid approaches | "Could use polling or WebSocket" | Ask: which approach? |
-| Missing resource | "Entity doesn't exist" | Ask: create it, skip, abort? |
-| Validation failure | "Pattern check failed" | Ask: proceed anyway, fix, abort? |
-| Ambiguous requirement | "Not clear if X or Y" | Ask: clarify the requirement |
-| Can't determine root cause | "Multiple possible causes" | Ask: which to investigate? |
-
-### Required Behavior
-
-```markdown
-# WRONG - just outputs text and stops
-[feature-implementor] Error: Quiz must have at least one question.
-What should I do?
-
-# CORRECT - uses interactive question
-[feature-implementor] Error encountered. Asking user...
-AskUserQuestion:
-  questions:
-    - question: "API returned '400: Quiz must have questions'. How should I proceed?"
-      header: "API Error"
-      options:
-        - label: "Create test quiz data"
-          description: "I'll add sample questions so the endpoint works"
-        - label: "Skip this step"
-          description: "Continue, test manually later"
-        - label: "Show me the error"
-          description: "I'll show the full error for investigation"
-        - label: "Abort workflow"
-          description: "Stop the implementation"
-      multiSelect: false
-```
-
-### After User Responds
-
-The subagent continues with the user's decision. If the subagent already exited, the main conversation re-spawns it with context including the user's choice.
 
 ### How to Spawn Agents
 
@@ -181,6 +134,22 @@ Prompt: |
   $KNOWLEDGE_AREA = all
 ```
 
+**For infrastructure implementation:**
+```
+Task: spawn infrastructure-implementor
+Prompt: |
+  Implement infrastructure changes.
+  Feature: [USER'S DESCRIPTION]
+  $INFRA_ROOT = [path to infrastructure repository]
+  $REPOS_ROOT = [path to repos]
+
+  Complete all work autonomously:
+  1. Analyze existing patterns
+  2. Create/modify Kubernetes resources
+  3. Validate manifests
+  4. Report changes with REVIEW: comments
+```
+
 **NEVER** do the agent's work yourself. The agents have:
 - Specific workflows to follow
 - Validation steps
@@ -227,6 +196,7 @@ When spawning agents, prefix your output:
 | `/update-knowledge "misconception"` | Investigate & correct wrong knowledge (fixes *.md files) |
 | `/update-dashboard SERVICE` | Create/update Grafana dashboard for service observability |
 | `/write-docs "topic"` | Write technical/business documentation to Confluence |
+| `/implement-infra "description"` | Implement infrastructure changes (Kubernetes, GitOps, IaC) |
 
 ## Agent System
 
@@ -249,6 +219,7 @@ When spawning agents, prefix your output:
 - `backend-implementor` - Implements C#/.NET code autonomously (spawned by feature-implementor)
 - `frontend-implementor` - Implements React/TS code autonomously (spawned by feature-implementor)
 - `core-implementor` - Implements shared package changes (spawned by feature-implementor)
+- `infrastructure-implementor` - Implements Kubernetes/GitOps/IaC changes (spawned by feature-implementor or directly)
 - `backend-pattern-validator` - Validates C#/.NET patterns
 - `frontend-pattern-validator` - Validates React/TS patterns
 - `knowledge-updater` - Writes to learned YAML files (spawned by commit-manager)
@@ -269,10 +240,10 @@ Task: spawn [orchestrator-agent]
     ├──► [feature-planner] analyze & identify work streams
     │
     ├──► PARALLEL IMPLEMENTATION ←── KEY: Multiple implementors simultaneously
-    │    ┌────────────────┬────────────────┬────────────────┐
-    │    │ backend-impl   │ frontend-impl  │ core-impl      │
-    │    │ (.cs files)    │ (.tsx files)   │ (packages)     │
-    │    └───────┬────────┴───────┬────────┴───────┬────────┘
+    │    ┌────────────────┬────────────────┬────────────────┬────────────────┐
+    │    │ backend-impl   │ frontend-impl  │ core-impl      │ infra-impl     │
+    │    │ (.cs files)    │ (.tsx files)   │ (packages)     │ (k8s/gitops)   │
+    │    └───────┬────────┴───────┬────────┴───────┬────────┴───────┬────────┘
     │            └────────────────┴────────────────┘
     │                         WAIT FOR ALL
     │
@@ -327,6 +298,7 @@ All agents load patterns from `knowledge/`:
 - `knowledge/validation/` - Pattern validation rules
 - `knowledge/packages/` - Package config
 - `knowledge/jira/` - Jira config
+- `knowledge/infrastructure/` - Infrastructure patterns (Kubernetes, GitOps, IaC)
 
 ## Single Writer Pattern
 

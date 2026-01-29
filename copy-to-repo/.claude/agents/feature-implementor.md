@@ -47,10 +47,10 @@ Automatic via Claude Code hooks - no manual logging required.
 │     └──► Determine: What can run in PARALLEL?                               │
 │                                                                              │
 │  STEP 2: PARALLEL IMPLEMENTATION  ←── THE KEY CHANGE                        │
-│     ┌─────────────────┬─────────────────┬─────────────────┐                 │
-│     │ backend-impl    │ frontend-impl   │ core-impl       │                 │
-│     │ (if .cs work)   │ (if .tsx work)  │ (if pkg work)   │                 │
-│     └────────┬────────┴────────┬────────┴────────┬────────┘                 │
+│     ┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐│
+│     │ backend-impl    │ frontend-impl   │ core-impl       │ infra-impl      ││
+│     │ (if .cs work)   │ (if .tsx work)  │ (if pkg work)   │ (if k8s work)   ││
+│     └────────┬────────┴────────┬────────┴────────┬────────┴────────┬────────┘│
 │              │                 │                 │                           │
 │              └─────────────────┴─────────────────┘                           │
 │                        WAIT FOR ALL                                          │
@@ -123,6 +123,7 @@ Prompt: |
 - Backend work (`.cs` files, API endpoints, services)
 - Frontend work (`.tsx/.ts` files, components, hooks)
 - Core package work (shared libraries)
+- Infrastructure work (Kubernetes manifests, GitOps configs, IaC)
 - Dependencies between streams
 
 ### Step 2: Parallel Implementation (THE KEY STEP)
@@ -177,6 +178,21 @@ Prompt: |
   Feature: $FEATURE_DESCRIPTION
   Package: [package name]
   $REPOS_ROOT = $REPOS_ROOT
+```
+
+**If infrastructure work exists:**
+```
+Task: spawn infrastructure-implementor
+Prompt: |
+  Implement infrastructure changes AUTONOMOUSLY.
+  Feature: $FEATURE_DESCRIPTION
+  Scope: [infrastructure work from plan]
+  Files: [k8s manifests, helm charts, etc. to modify]
+  $INFRA_ROOT = [path to infrastructure repo]
+  $REPOS_ROOT = $REPOS_ROOT
+
+  DO NOT STOP TO ASK QUESTIONS.
+  Make reasonable assumptions, document with REVIEW: comments.
 ```
 
 ### Step 3: Build Verification (REQUIRED GATE)
@@ -332,13 +348,40 @@ When you make an assumption, add a REVIEW comment:
 
 These get listed in the final report for user review AFTER implementation is complete.
 
+## Knowledge to Load
+
+```
+Read: knowledge/cicd/package-publishing.md    → CI/CD workflows, PR package versions
+Read: knowledge/packages/package-config.md    → Package registries and dependencies
+```
+
+## CI/CD Awareness
+
+**CRITICAL**: Core packages (mf-packages, dotnet-core) must be built by CI/CD to publish.
+
+**Cross-Repo Development:**
+- If modifying a core package, the package must be published before consumers can use it
+- PR-based packages are available: `0.1.X-pr.123.abc1234`
+- After creating PR for core package, wait for CI/CD to publish PR version
+- Consumers can reference PR versions for testing: `pnpm add @bf/security@0.1.X-pr.123.abc1234`
+
+**Workflow for Core Package Changes:**
+1. Make changes to core package
+2. Create PR → CI/CD publishes PR version automatically
+3. PR comment shows: "Install with: `pnpm add @bf/package@0.1.X-pr.123.abc1234`"
+4. Update consumers to use PR version for testing
+5. After merge, CI/CD publishes stable version
+6. Update consumers to stable version
+
 ## Related Agents
 
 - `feature-planner` - Analyzes and splits work
 - `backend-implementor` - Implements .cs changes
 - `frontend-implementor` - Implements .tsx/.ts changes
 - `core-implementor` - Implements shared package changes
+- `infrastructure-implementor` - Implements Kubernetes/GitOps/IaC changes
 - `backend-pattern-validator` - Validates backend
 - `frontend-pattern-validator` - Validates frontend
+- `infrastructure-validator` - Validates infrastructure patterns
 - `commit-manager` - Commits changes
 - `git-workflow-manager` - Branch/PR management
