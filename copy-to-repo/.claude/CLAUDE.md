@@ -6,8 +6,8 @@
 
 | User Request Pattern | Agent to Spawn | Command |
 |---------------------|----------------|---------|
-| "fix bugs from Jira/ticket" | `bug-triage` | `/fix-bugs TICKET-ID` |
-| "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fix-orchestrator` | `/fix-bug "description"` |
+| "fix bugs from Jira/ticket" | `bug-triage` | `/fix-bugs-jira TICKET-ID` |
+| "fix bug" / "there's a bug" / "I noticed a bug" | `bug-fix-orchestrator` | `/fix-bug-direct "description"` |
 | "plan feature" / "analyze feature" (simple) | `feature-planner` | `/plan-feature "description"` |
 | "plan feature" (multi-perspective) | `planning-council` | `/plan-council "description"` |
 | "implement feature" / "build feature" | `feature-implementor` | `/implement-feature "description"` |
@@ -17,7 +17,80 @@
 | "knowledge is wrong" / "we actually use X" / "fix knowledge" | `knowledge-investigator` | `/update-knowledge "description"` |
 | "create/update grafana dashboard" | `grafana-dashboard-manager` | `/update-dashboard SERVICE` |
 | "write docs" / "create documentation" / "document..." | `confluence-writer` | `/write-docs "topic"` |
+| "sync docs to Confluence" / "sync documentation" | `docs-sync-agent` | `/sync-docs` |
 | "implement infra" / "add kubernetes" / "deploy service" / "infrastructure change" | `infrastructure-implementor` | `/implement-infra "description"` |
+
+---
+
+## 📋 Command Decision Trees
+
+### Bug Fixing Decision Tree
+
+```
+Do you have a bug to fix?
+    │
+    ├── YES, I have a Jira ticket
+    │   └── Use: /fix-bugs-jira TICKET-ID
+    │       → Fetches ticket, parses bugs, fixes all, updates Jira
+    │
+    └── YES, but NO Jira ticket (just a description)
+        └── Use: /fix-bug-direct "description"
+            → Fixes the bug directly from your description
+```
+
+### Planning & Implementation Decision Tree
+
+```
+Do you want to plan or implement a feature?
+    │
+    ├── JUST PLAN (don't implement yet)
+    │   │
+    │   ├── I want a quick, focused plan
+    │   │   └── Use: /plan-feature "description"
+    │   │       → Single perspective, fast, uses validators
+    │   │
+    │   └── I want multiple perspectives / thorough analysis
+    │       └── Use: /plan-council "description"
+    │           → Spawns N agents with different viewpoints
+    │           → Pragmatic, Architectural, Risk-Aware, User-Centric, Performance
+    │
+    └── PLAN AND IMPLEMENT (full workflow)
+        └── Use: /implement-feature "description"
+            → Plans THEN implements THEN validates THEN commits
+            → Complete end-to-end workflow
+```
+
+### Documentation Decision Tree
+
+```
+Do you need documentation on Confluence?
+    │
+    ├── CREATE new documentation (from codebase exploration)
+    │   └── Use: /write-docs "topic"
+    │       → Uses confluence-writer agent
+    │       → Explores code, writes docs, pushes to Confluence
+    │       → Best for: New technical/business documentation
+    │
+    └── SYNC existing documentation (repo ↔ Confluence)
+        └── Use: /sync-docs
+            → Uses docs-sync-agent
+            → Bidirectional sync between repos and Confluence
+            → Best for: Keeping existing docs in sync
+```
+
+### Telemetry Decision Tree
+
+```
+Do you want to see agent execution info?
+    │
+    └── Use: /agent-telemetry
+        │
+        ├── --stats     → Aggregate summary (tokens, agents, warnings)
+        ├── --trace     → Full execution tree of last workflow
+        ├── --context   → Context usage breakdown by agent
+        ├── --warnings  → Show only warnings
+        └── --parallel  → Parallel execution analysis
+```
 
 ---
 
@@ -236,18 +309,18 @@ When spawning agents, prefix your output:
 
 | Command | Description |
 |---------|-------------|
-| `/fix-bugs TICKET-ID` | Fix multiple bugs from Jira ticket (uses bug-triage) |
-| `/fix-bug "description"` | Fix single bug you describe (no Jira needed) |
+| `/fix-bugs-jira TICKET-ID` | Fix bugs from Jira ticket (uses bug-triage) |
+| `/fix-bug-direct "description"` | Fix single bug you describe (no Jira needed) |
 | `/plan-feature "description"` | Plan feature (single perspective, fast) |
 | `/plan-council "description"` | Plan feature (N perspectives in parallel, thorough) |
 | `/implement-feature "description"` | Plan AND implement feature (full workflow) |
 | `/validate` | Run architecture validation |
 | `/commit` | Generate and execute commits |
-| `/agent-stats` | Show agent telemetry dashboard (tokens, call tree, warnings) |
-| `/agent-trace` | Show full execution tree of last workflow (validators, git, timing) |
+| `/agent-telemetry` | Show agent execution info (--stats, --trace, --context, --warnings) |
 | `/update-knowledge "misconception"` | Investigate & correct wrong knowledge (fixes *.md files) |
 | `/update-dashboard SERVICE` | Create/update Grafana dashboard for service observability |
-| `/write-docs "topic"` | Write technical/business documentation to Confluence |
+| `/write-docs "topic"` | Create technical/business documentation on Confluence |
+| `/sync-docs` | Sync existing documentation between repos and Confluence |
 | `/implement-infra "description"` | Implement infrastructure changes (Kubernetes, GitOps, IaC) |
 | `/git-sync` | Sync current feature branch with latest develop (prevents merge conflicts) |
 | `/git-cleanup` | Clean up after merged PR (switch to develop, delete old feature branch) |

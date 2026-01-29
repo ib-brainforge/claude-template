@@ -1,0 +1,40 @@
+# Node modules (14 directories, several GB each)
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/out/
+
+# .NET build artifacts
+**/bin/
+**/obj/
+
+# Package manager caches
+**/.pnpm-store/
+**/.yarn/
+**/.npm/
+
+# IDE and editor
+**/.idea/
+**/.vs/
+
+# Playwright
+**/.playwright-mcp/
+**/playwright-report/
+**/test-results/
+
+# Large files
+**/*.min.js
+**/*.min.css
+**/*.map
+**/*.chunk.js
+
+# Git
+**/.git/
+
+# Misc
+**/.DS_Store
+**/coverage/
+**/.nyc_output/
